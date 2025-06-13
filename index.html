@@ -3,9 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check List CQ Produção</title>
+    <title>Check List CQ Produção - Office 365</title>
+    
+    <!-- Microsoft Graph SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-graph-client/3.0.7/graph-js-sdk.min.js"></script>
+    <!-- MSAL Browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.8.0/msal-browser.min.js"></script>
+    <!-- PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -40,6 +47,28 @@
             font-size: 2.5em;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .office365-status {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .office365-status.connected {
+            background: rgba(39, 174, 96, 0.2);
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+
+        .office365-status.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.3);
         }
 
         .header-info {
@@ -116,6 +145,113 @@
             overflow-x: auto;
         }
 
+        .new-verification-section {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+        }
+
+        .btn-new-verification {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-new-verification:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .image-upload-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 8px;
+            border: 2px dashed #3498db;
+        }
+
+        .image-upload-section input[type="file"] {
+            display: none;
+        }
+
+        .image-upload-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .image-preview {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .image-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .image-container img {
+            max-width: 120px;
+            max-height: 120px;
+            border-radius: 5px;
+            border: 2px solid #ddd;
+            margin-bottom: 8px;
+        }
+
+        .image-legend {
+            width: 120px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+            resize: none;
+        }
+
+        .image-delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-delete-btn:hover {
+            background: #c0392b;
+        }
+
         .checklist-table {
             width: 100%;
             border-collapse: collapse;
@@ -138,10 +274,6 @@
             min-width: 120px;
         }
 
-        .checklist-table th:first-child {
-            min-width: 80px;
-        }
-
         .checklist-table td {
             padding: 12px 8px;
             text-align: center;
@@ -151,7 +283,6 @@
 
         .checklist-table tr:hover {
             background: #f8f9fa;
-            transform: scale(1.001);
             transition: all 0.2s ease;
         }
 
@@ -160,6 +291,28 @@
             font-size: 16px;
             background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
             color: #2c3e50;
+            position: relative;
+        }
+
+        .delete-row-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .checklist-table tr:hover .delete-row-btn {
+            display: flex;
         }
 
         .op-input {
@@ -170,12 +323,6 @@
             text-align: center;
             font-weight: bold;
             transition: all 0.3s ease;
-        }
-
-        .op-input:focus {
-            border-color: #3498db;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
 
         .status-buttons {
@@ -194,98 +341,81 @@
             font-size: 14px;
             transition: all 0.3s ease;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             position: relative;
         }
 
-        .status-btn:hover {
-            transform: scale(1.1);
+        .btn-ok { 
+            background: #27ae60; 
+            color: white; 
+        }
+        
+        .btn-ok:hover:not(.active) {
+            background: #2ecc71;
+            transform: scale(1.05);
+        }
+        
+        .btn-atencao { 
+            background: #f39c12; 
+            color: white; 
+        }
+        
+        .btn-atencao:hover:not(.active) {
+            background: #e67e22;
+            transform: scale(1.05);
+        }
+        
+        .btn-nok { 
+            background: #e74c3c; 
+            color: white; 
+        }
+        
+        .btn-nok:hover:not(.active) {
+            background: #c0392b;
+            transform: scale(1.05);
         }
 
-        .status-btn.active::after {
-            content: '';
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            border: 3px solid currentColor;
-            border-radius: 50%;
-            opacity: 0.6;
-        }
-
-        .btn-ok {
-            background: #27ae60;
-            color: white;
+        .status-btn:hover.active {
+            opacity: 0.8;
+            cursor: pointer;
         }
 
         .btn-ok.active {
             background: #2ecc71;
             box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5);
             transform: scale(1.2);
-            border: 3px solid #27ae60;
-            animation: pulse 2s infinite;
-        }
-
-        .btn-atencao {
-            background: #f39c12;
-            color: white;
+            animation: pulse-green 2s infinite;
         }
 
         .btn-atencao.active {
             background: #e67e22;
             box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5);
             transform: scale(1.2);
-            border: 3px solid #d68910;
-            animation: pulse 2s infinite;
-        }
-
-        .btn-nok {
-            background: #e74c3c;
-            color: white;
+            animation: pulse-yellow 2s infinite;
         }
 
         .btn-nok.active {
             background: #c0392b;
             box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5);
             transform: scale(1.2);
-            border: 3px solid #a93226;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
-            50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.2); }
-            100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
-        }
-
-        .btn-ok.active {
-            animation-name: pulse-green;
-        }
-
-        .btn-atencao.active {
-            animation-name: pulse-yellow;
-        }
-
-        .btn-nok.active {
-            animation-name: pulse-red;
+            animation: pulse-red 2s infinite;
         }
 
         @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
+            0%, 100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
             50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.2); }
-            100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
         }
 
         @keyframes pulse-yellow {
-            0% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
+            0%, 100% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
             50% { box-shadow: 0 0 0 8px rgba(230, 126, 34, 0.2); }
-            100% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
         }
 
         @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
+            0%, 100% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
             50% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0.2); }
-            100% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
         }
 
         .obs-input {
@@ -297,16 +427,16 @@
             transition: all 0.3s ease;
         }
 
-        .obs-input:focus {
-            border-color: #3498db;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-            width: 200px;
-        }
-
         .actions {
             padding: 30px;
             background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .action-buttons {
             display: flex;
             gap: 20px;
             justify-content: center;
@@ -325,18 +455,33 @@
             letter-spacing: 1px;
         }
 
+        .btn-office365 {
+            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
+            color: white;
+        }
+
         .btn-save {
             background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
             color: white;
         }
 
-        .btn-print {
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        .btn-export {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
+        .btn-import {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
             color: white;
         }
 
         .btn-pdf {
             background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
             color: white;
         }
 
@@ -350,17 +495,35 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
+        .save-status {
+            text-align: center;
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 8px;
+            font-size: 14px;
+            color: #6c757d;
+            min-width: 250px;
+            font-weight: 500;
+        }
+
+        .save-status.saved {
+            color: #27ae60;
+            background: rgba(39, 174, 96, 0.1);
+            border: 1px solid rgba(39, 174, 96, 0.2);
+        }
+
+        .save-status.error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.2);
+        }
+
         .summary {
             margin-top: 30px;
             padding: 20px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 10px;
             text-align: center;
-        }
-
-        .summary h3 {
-            color: #2c3e50;
-            margin-bottom: 15px;
         }
 
         .summary-stats {
@@ -388,27 +551,14 @@
         .stat-atencao .stat-number { color: #f39c12; }
         .stat-nok .stat-number { color: #e74c3c; }
 
-        @media (max-width: 768px) {
-            .header-info {
-                grid-template-columns: 1fr;
-            }
-            
-            .legend-items {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .checklist-table th,
-            .checklist-table td {
-                padding: 8px 4px;
-                font-size: 11px;
-            }
-            
-            .actions {
-                flex-direction: column;
-                align-items: center;
-            }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
         }
+
+        .file-input { display: none; }
 
         .toast {
             position: fixed;
@@ -427,12 +577,36 @@
         .toast.show {
             transform: translateX(0);
         }
+
+        @media (max-width: 768px) {
+            .header-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+            }
+            
+            .action-btn {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>CHECK LIST CQ PRODUÇÃO</h1>
+            <div class="office365-status" id="officeStatus">
+                <span id="officeStatusIcon">🔌</span>
+                <span id="officeStatusText">Conectando ao Office 365...</span>
+                <button class="btn-office365" id="connectBtn" onclick="connectToOffice365()" style="display: none;">
+                    Conectar Office 365
+                </button>
+            </div>
             <div class="header-info">
                 <div class="info-group">
                     <label for="data">Data:</label>
@@ -464,6 +638,23 @@
         </div>
 
         <div class="checklist-container">
+            <div class="new-verification-section">
+                <button class="btn-new-verification" onclick="addNewVerification()">
+                    ➕ Nova Verificação
+                </button>
+                <p style="margin-top: 10px; color: #6c757d; font-size: 14px;">
+                    💡 Dica: Clique nos botões coloridos para marcar status. Clique novamente para desmarcar.
+                </p>
+                <div class="image-upload-section">
+                    <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">
+                        📷 Adicionar Fotos
+                    </button>
+                    <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)">
+                    <span style="font-size: 12px; color: #666;">Evidências, não conformidades, etc.</span>
+                    <div class="image-preview" id="imagePreview"></div>
+                </div>
+            </div>
+
             <table class="checklist-table" id="checklistTable">
                 <thead>
                     <tr>
@@ -477,6 +668,13 @@
                     </tr>
                 </thead>
                 <tbody id="checklistBody">
+                    <tr class="empty-state">
+                        <td colspan="7">
+                            <div class="empty-state-icon">📝</div>
+                            <div>Nenhuma verificação adicionada</div>
+                            <div>Clique em "Nova Verificação" para começar</div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
 
@@ -500,86 +698,267 @@
         </div>
 
         <div class="actions">
-            <button class="action-btn btn-save" onclick="saveData()">💾 Salvar</button>
-            <button class="action-btn btn-pdf" onclick="generatePDF()">📄 Gerar PDF</button>
-            <button class="action-btn btn-print" onclick="printChecklist()">🖨️ Imprimir</button>
-            <button class="action-btn btn-clear" onclick="clearAll()">🗑️ Limpar Tudo</button>
+            <div class="save-status" id="saveStatus">
+                💾 Sistema pronto para salvar
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn btn-save" onclick="saveToOneDrive()">☁️ Salvar OneDrive</button>
+                <button class="action-btn btn-save" onclick="saveData()">💾 Salvar Local</button>
+                <button class="action-btn btn-export" onclick="exportData()">📥 Exportar</button>
+                <button class="action-btn btn-import" onclick="document.getElementById('importFile').click()">📤 Importar</button>
+                <button class="action-btn btn-pdf" onclick="generatePDF()">📄 PDF</button>
+                <button class="action-btn btn-office365" onclick="sendReportByEmail()">📧 Enviar Relatório</button>
+                <button class="action-btn btn-clear" onclick="clearAll()">🗑️ Limpar</button>
+            </div>
+            
+            <input type="file" id="importFile" class="file-input" accept=".json" onchange="importData(event)">
         </div>
     </div>
 
     <div class="toast" id="toast"></div>
 
     <script>
-        // Horários de verificação (7h às 16h)
-        const horarios = [
-            '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
-            '13:00', '14:00', '15:00', '16:00'
-        ];
+        // ===== CONFIGURAÇÃO MICROSOFT GRAPH =====
+        
+        // IMPORTANTE: Configure estes valores no Azure AD
+        const msalConfig = {
+            auth: {
+                clientId: 'SEU_CLIENT_ID_AQUI', // Substitua pelo Client ID do Azure AD
+                authority: 'https://login.microsoftonline.com/SEU_TENANT_ID_AQUI', // Substitua pelo Tenant ID
+                redirectUri: window.location.origin // URL atual
+            },
+            cache: {
+                cacheLocation: 'localStorage',
+                storeAuthStateInCookie: false
+            }
+        };
 
-        // Colunas de verificação
-        const colunas = [
-            'materiais', 'processos', 'competencia', 'etiquetas'
-        ];
+        // Permissões necessárias
+        const graphScopes = {
+            scopes: [
+                'User.Read',
+                'Files.ReadWrite',
+                'Sites.ReadWrite.All',
+                'Mail.Send'
+            ]
+        };
 
-        // Inicializar data atual
-        document.getElementById('data').value = new Date().toISOString().split('T')[0];
+        let msalInstance;
+        let graphClient;
+        let currentUser = null;
+        
+        // Variáveis do sistema
+        let verificationCounter = 0;
+        let uploadedImages = [];
+        const colunas = ['materiais', 'processos', 'competencia', 'etiquetas'];
 
-        // Gerar tabela do checklist
-        function generateChecklist() {
-            const tbody = document.getElementById('checklistBody');
-            tbody.innerHTML = '';
+        // ===== INICIALIZAÇÃO =====
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMSAL();
+            document.getElementById('data').value = new Date().toISOString().split('T')[0];
+            loadData();
+        });
 
-            horarios.forEach(hora => {
-                // Criar 4 linhas por hora (como no Excel original)
-                for (let i = 0; i < 4; i++) {
-                    const row = document.createElement('tr');
-                    
-                    // Coluna de hora (apenas na primeira linha de cada hora)
-                    const horaCell = document.createElement('td');
-                    horaCell.className = 'hour-cell';
-                    if (i === 0) {
-                        horaCell.textContent = hora;
-                        horaCell.rowSpan = 4;
-                    }
-                    if (i === 0) row.appendChild(horaCell);
-
-                    // Coluna O.P
-                    const opCell = document.createElement('td');
-                    opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P">`;
-                    row.appendChild(opCell);
-
-                    // Colunas de verificação
-                    colunas.forEach(coluna => {
-                        const cell = document.createElement('td');
-                        cell.innerHTML = `
-                            <div class="status-buttons">
-                                <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')" title="OK">✓</button>
-                                <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao')" title="Atenção">⚠</button>
-                                <button class="status-btn btn-nok" onclick="setStatus(this, 'nok')" title="Não OK">✗</button>
-                            </div>
-                        `;
-                        row.appendChild(cell);
-                    });
-
-                    // Coluna de observações
-                    const obsCell = document.createElement('td');
-                    obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações">`;
-                    row.appendChild(obsCell);
-
-                    tbody.appendChild(row);
+        async function initializeMSAL() {
+            try {
+                // Verificar se as configurações estão definidas
+                if (msalConfig.auth.clientId === 'SEU_CLIENT_ID_AQUI') {
+                    updateOfficeStatus('disconnected', '⚠️', 'Configuração necessária', true);
+                    return;
                 }
+
+                msalInstance = new msal.PublicClientApplication(msalConfig);
+                await msalInstance.initialize();
+                
+                // Verificar se há conta logada
+                const accounts = msalInstance.getAllAccounts();
+                if (accounts.length > 0) {
+                    currentUser = accounts[0];
+                    await initializeGraphClient();
+                    updateOfficeStatus('connected', '✅', `Conectado: ${currentUser.name}`, false);
+                    document.getElementById('verificador').value = currentUser.name;
+                } else {
+                    updateOfficeStatus('disconnected', '🔌', 'Clique para conectar', true);
+                }
+            } catch (error) {
+                console.error('Erro ao inicializar MSAL:', error);
+                updateOfficeStatus('disconnected', '❌', 'Erro de configuração', true);
+            }
+        }
+
+        async function connectToOffice365() {
+            try {
+                updateOfficeStatus('connecting', '⏳', 'Conectando...', false);
+                
+                const response = await msalInstance.loginPopup(graphScopes);
+                currentUser = response.account;
+                
+                await initializeGraphClient();
+                updateOfficeStatus('connected', '✅', `Conectado: ${currentUser.name}`, false);
+                document.getElementById('verificador').value = currentUser.name;
+                
+                showToast('Conectado ao Office 365 com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('Erro na autenticação:', error);
+                updateOfficeStatus('disconnected', '❌', 'Erro na conexão', true);
+                showToast('Erro ao conectar com Office 365', 'error');
+            }
+        }
+
+        async function initializeGraphClient() {
+            class MSALAuthProvider {
+                async getAccessToken() {
+                    try {
+                        const response = await msalInstance.acquireTokenSilent({
+                            ...graphScopes,
+                            account: currentUser
+                        });
+                        return response.accessToken;
+                    } catch (error) {
+                        // Se silent falhar, tenta interativo
+                        const response = await msalInstance.acquireTokenPopup(graphScopes);
+                        return response.accessToken;
+                    }
+                }
+            }
+
+            const authProvider = new MSALAuthProvider();
+            graphClient = MicrosoftGraph.Client.initWithMiddleware({ authProvider });
+        }
+
+        function updateOfficeStatus(status, icon, text, showButton) {
+            const statusEl = document.getElementById('officeStatus');
+            const iconEl = document.getElementById('officeStatusIcon');
+            const textEl = document.getElementById('officeStatusText');
+            const btnEl = document.getElementById('connectBtn');
+            
+            iconEl.textContent = icon;
+            textEl.textContent = text;
+            btnEl.style.display = showButton ? 'inline-block' : 'none';
+            
+            statusEl.className = `office365-status ${status}`;
+        }
+
+        // ===== FUNCIONALIDADES CORE =====
+        
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
             });
         }
 
-        // Definir status dos botões
-        function setStatus(button, status) {
-            const buttons = button.parentElement.querySelectorAll('.status-btn');
-            buttons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
+        function addNewVerification() {
+            const tbody = document.getElementById('checklistBody');
+            
+            const emptyState = tbody.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            verificationCounter++;
+            const currentTime = getCurrentTime();
+            
+            const row = document.createElement('tr');
+            row.setAttribute('data-verification-id', verificationCounter);
+            row.setAttribute('data-timestamp', Date.now());
+            
+            // Coluna de hora
+            const horaCell = document.createElement('td');
+            horaCell.className = 'hour-cell';
+            horaCell.textContent = currentTime;
+            horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${verificationCounter})" title="Excluir verificação">×</button>`;
+            row.appendChild(horaCell);
+
+            // Coluna O.P
+            const opCell = document.createElement('td');
+            opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P">`;
+            row.appendChild(opCell);
+
+            // Colunas de verificação
+            colunas.forEach(coluna => {
+                const cell = document.createElement('td');
+                cell.innerHTML = `
+                    <div class="status-buttons">
+                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')" title="OK - Clique para marcar/desmarcar">✓</button>
+                        <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao')" title="Atenção - Clique para marcar/desmarcar">⚠</button>
+                        <button class="status-btn btn-nok" onclick="setStatus(this, 'nok')" title="Não OK - Clique para marcar/desmarcar">✗</button>
+                    </div>
+                `;
+                row.appendChild(cell);
+            });
+
+            // Coluna de observações
+            const obsCell = document.createElement('td');
+            obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações">`;
+            row.appendChild(obsCell);
+
+            tbody.appendChild(row);
+            
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            setTimeout(() => {
+                const opInput = row.querySelector('.op-input');
+                if (opInput) {
+                    opInput.focus();
+                }
+            }, 300);
+
+            showToast('Nova verificação adicionada!', 'success');
             updateSummary();
         }
 
-        // Atualizar resumo
+        function deleteVerification(verificationId) {
+            if (confirm('Tem certeza que deseja excluir esta verificação?')) {
+                const row = document.querySelector(`tr[data-verification-id="${verificationId}"]`);
+                if (row) {
+                    row.remove();
+                    updateSummary();
+                    
+                    const tbody = document.getElementById('checklistBody');
+                    if (tbody.children.length === 0) {
+                        showEmptyState();
+                    }
+                    
+                    showToast('Verificação excluída!', 'success');
+                }
+            }
+        }
+
+        function showEmptyState() {
+            const tbody = document.getElementById('checklistBody');
+            tbody.innerHTML = `
+                <tr class="empty-state">
+                    <td colspan="7">
+                        <div class="empty-state-icon">📝</div>
+                        <div>Nenhuma verificação adicionada</div>
+                        <div>Clique em "Nova Verificação" para começar</div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function setStatus(button, status) {
+            const buttons = button.parentElement.querySelectorAll('.status-btn');
+            
+            // Se o botão já está ativo, remover a seleção
+            if (button.classList.contains('active')) {
+                button.classList.remove('active');
+            } else {
+                // Remover active de todos os botões
+                buttons.forEach(btn => btn.classList.remove('active'));
+                // Adicionar active ao botão clicado
+                button.classList.add('active');
+            }
+            
+            updateSummary();
+        }
+
         function updateSummary() {
             const activeButtons = document.querySelectorAll('.status-btn.active');
             let countOk = 0, countAtencao = 0, countNok = 0;
@@ -595,283 +974,599 @@
             document.getElementById('countNok').textContent = countNok;
         }
 
-        // Salvar dados
-        function saveData() {
+        // ===== UPLOAD DE IMAGENS =====
+        
+        function handleImageUpload(event) {
+            const files = Array.from(event.target.files);
+            const preview = document.getElementById('imagePreview');
+            
+            files.forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const imageId = Date.now() + index;
+                        
+                        // Criar container da imagem
+                        const container = document.createElement('div');
+                        container.className = 'image-container';
+                        container.setAttribute('data-image-id', imageId);
+                        
+                        // Criar imagem
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.title = file.name;
+                        
+                        // Criar campo de legenda
+                        const legend = document.createElement('textarea');
+                        legend.className = 'image-legend';
+                        legend.placeholder = 'Adicionar legenda...';
+                        legend.rows = 2;
+                        
+                        // Criar botão de exclusão
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'image-delete-btn';
+                        deleteBtn.innerHTML = '×';
+                        deleteBtn.title = 'Excluir imagem';
+                        deleteBtn.onclick = () => deleteImage(imageId);
+                        
+                        // Montar container
+                        container.appendChild(deleteBtn);
+                        container.appendChild(img);
+                        container.appendChild(legend);
+                        preview.appendChild(container);
+                        
+                        // Adicionar aos dados
+                        uploadedImages.push({
+                            id: imageId,
+                            name: file.name,
+                            data: e.target.result,
+                            file: file,
+                            legend: ''
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            showToast(`${files.length} imagem(ns) adicionada(s)!`, 'success');
+            
+            // Limpar input para permitir selecionar as mesmas imagens novamente
+            event.target.value = '';
+        }
+
+        function deleteImage(imageId) {
+            // Remover do array
+            uploadedImages = uploadedImages.filter(img => img.id !== imageId);
+            
+            // Remover do DOM
+            const container = document.querySelector(`[data-image-id="${imageId}"]`);
+            if (container) {
+                container.remove();
+            }
+            
+            showToast('Imagem removida!', 'success');
+        }
+
+        function updateImageLegends() {
+            // Atualizar legendas no array baseado nos campos de texto
+            const containers = document.querySelectorAll('.image-container');
+            containers.forEach(container => {
+                const imageId = parseInt(container.getAttribute('data-image-id'));
+                const legend = container.querySelector('.image-legend').value;
+                
+                const imageData = uploadedImages.find(img => img.id === imageId);
+                if (imageData) {
+                    imageData.legend = legend;
+                }
+            });
+        }
+
+        // ===== INTEGRAÇÃO OFFICE 365 =====
+        
+        async function saveToOneDrive() {
+            if (!graphClient) {
+                showToast('Conecte-se ao Office 365 primeiro!', 'error');
+                return;
+            }
+
+            try {
+                updateSaveStatus('loading');
+                
+                // Preparar dados
+                const data = prepareDataForSave();
+                data.savedToOneDrive = true;
+                data.oneDrivePath = '/CheckList_CQ';
+                
+                // Nome do arquivo
+                const dateStr = data.data.replace(/-/g, '');
+                const verificador = data.verificador.replace(/[^a-zA-Z0-9]/g, '_');
+                const fileName = `CheckList_CQ_${dateStr}_${verificador}.json`;
+                
+                // Salvar JSON no OneDrive
+                const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { 
+                    type: 'application/json' 
+                });
+                
+                await graphClient
+                    .api(`/me/drive/root:/CheckList_CQ/${fileName}:/content`)
+                    .put(jsonBlob);
+                
+                // Upload das imagens se houver
+                if (uploadedImages.length > 0) {
+                    await uploadImagesToOneDrive(dateStr, verificador);
+                }
+                
+                updateSaveStatus('saved');
+                showToast('Dados salvos no OneDrive com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao salvar no OneDrive:', error);
+                updateSaveStatus('error');
+                showToast('Erro ao salvar no OneDrive!', 'error');
+            }
+        }
+
+        async function uploadImagesToOneDrive(dateStr, verificador) {
+            const folderPath = `/CheckList_CQ/Imagens_${dateStr}_${verificador}`;
+            
+            // Criar pasta se não existir
+            try {
+                await graphClient
+                    .api(`/me/drive/root:${folderPath}`)
+                    .get();
+            } catch {
+                await graphClient
+                    .api('/me/drive/root/children')
+                    .post({
+                        name: `Imagens_${dateStr}_${verificador}`,
+                        folder: {}
+                    });
+            }
+            
+            // Upload de cada imagem
+            for (const image of uploadedImages) {
+                const response = await fetch(image.data);
+                const blob = await response.blob();
+                
+                await graphClient
+                    .api(`/me/drive/root:${folderPath}/${image.name}:/content`)
+                    .put(blob);
+            }
+        }
+
+        async function sendReportByEmail() {
+            if (!graphClient) {
+                showToast('Conecte-se ao Office 365 primeiro!', 'error');
+                return;
+            }
+
+            try {
+                const data = document.getElementById('data').value;
+                const verificador = document.getElementById('verificador').value;
+                const countOk = document.getElementById('countOk').textContent;
+                const countAtencao = document.getElementById('countAtencao').textContent;
+                const countNok = document.getElementById('countNok').textContent;
+                
+                const emailBody = `
+                    <h2>Relatório Check List CQ Produção</h2>
+                    <p><strong>Data:</strong> ${data}</p>
+                    <p><strong>Verificador:</strong> ${verificador}</p>
+                    
+                    <h3>Resumo:</h3>
+                    <ul>
+                        <li style="color: #27ae60;"><strong>OK:</strong> ${countOk}</li>
+                        <li style="color: #f39c12;"><strong>Atenção:</strong> ${countAtencao}</li>
+                        <li style="color: #e74c3c;"><strong>Não OK:</strong> ${countNok}</li>
+                    </ul>
+                    
+                    <p>Relatório gerado automaticamente pelo sistema Check List CQ.</p>
+                `;
+
+                const mail = {
+                    subject: `Check List CQ - ${data} - ${verificador}`,
+                    body: {
+                        contentType: 'html',
+                        content: emailBody
+                    },
+                    toRecipients: [
+                        {
+                            emailAddress: {
+                                address: 'supervisor@empresa.com' // Configure o email do supervisor
+                            }
+                        }
+                    ]
+                };
+
+                await graphClient.api('/me/sendMail').post({ message: mail });
+                showToast('Relatório enviado por email!', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao enviar email:', error);
+                showToast('Erro ao enviar email!', 'error');
+            }
+        }
+
+        // ===== SISTEMA DE SALVAMENTO =====
+        
+        function prepareDataForSave() {
+            // Atualizar legendas antes de salvar
+            updateImageLegends();
+            
             const data = {
                 data: document.getElementById('data').value,
                 verificador: document.getElementById('verificador').value,
+                verificationCounter: verificationCounter,
+                images: uploadedImages.map(img => ({ 
+                    id: img.id,
+                    name: img.name, 
+                    data: img.data,
+                    legend: img.legend || ''
+                })),
                 checklist: []
             };
 
-            const rows = document.querySelectorAll('#checklistBody tr');
+            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
             rows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length > 0) {
-                    const rowData = {
-                        op: cells[1]?.querySelector('.op-input')?.value || '',
-                        verificacoes: [],
-                        observacoes: cells[cells.length - 1]?.querySelector('.obs-input')?.value || ''
-                    };
-
-                    // Capturar status das verificações
+                    const opValue = cells[1]?.querySelector('.op-input')?.value || '';
+                    const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
+                    
+                    let hasStatus = false;
+                    const verificacoes = [];
                     for (let i = 2; i < cells.length - 1; i++) {
                         const activeBtn = cells[i]?.querySelector('.status-btn.active');
                         let status = null;
-                        if (activeBtn?.classList.contains('btn-ok')) status = 'ok';
-                        else if (activeBtn?.classList.contains('btn-atencao')) status = 'atencao';
-                        else if (activeBtn?.classList.contains('btn-nok')) status = 'nok';
-                        rowData.verificacoes.push(status);
+                        if (activeBtn?.classList.contains('btn-ok')) {
+                            status = 'ok';
+                            hasStatus = true;
+                        } else if (activeBtn?.classList.contains('btn-atencao')) {
+                            status = 'atencao';
+                            hasStatus = true;
+                        } else if (activeBtn?.classList.contains('btn-nok')) {
+                            status = 'nok';
+                            hasStatus = true;
+                        }
+                        verificacoes.push(status);
                     }
+
+                    const hasData = opValue.trim() !== '' || hasStatus || obsValue.trim() !== '';
                     
-                    data.checklist.push(rowData);
+                    if (hasData) {
+                        const rowData = {
+                            verificationId: row.getAttribute('data-verification-id'),
+                            timestamp: row.getAttribute('data-timestamp') || Date.now(),
+                            hora: cells[0]?.textContent.replace('×', '').trim() || '',
+                            op: opValue,
+                            verificacoes: verificacoes,
+                            observacoes: obsValue
+                        };
+                        
+                        data.checklist.push(rowData);
+                    }
                 }
             });
 
-            // Simular salvamento (em um sistema real, enviaria para servidor)
-            localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
-            showToast('Dados salvos com sucesso!', 'success');
+            data.checklist.sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
+            data.savedAt = new Date().toISOString();
+            data.version = '2.0';
+
+            return data;
         }
 
-        // Carregar dados salvos
+        function saveData() {
+            try {
+                const data = prepareDataForSave();
+                localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
+                updateSaveStatus('saved');
+                showToast('Dados salvos localmente!', 'success');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                updateSaveStatus('error');
+                showToast('Erro ao salvar dados!', 'error');
+            }
+        }
+
         function loadData() {
-            const saved = localStorage.getItem('checklist_cq_producao');
-            if (saved) {
-                const data = JSON.parse(saved);
-                document.getElementById('data').value = data.data || '';
-                document.getElementById('verificador').value = data.verificador || '';
+            try {
+                updateSaveStatus('loading');
                 
-                // Carregar dados da checklist
-                const rows = document.querySelectorAll('#checklistBody tr');
-                data.checklist.forEach((rowData, index) => {
-                    if (rows[index]) {
-                        const cells = rows[index].querySelectorAll('td');
+                const saved = localStorage.getItem('checklist_cq_producao');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    document.getElementById('data').value = data.data || '';
+                    document.getElementById('verificador').value = data.verificador || '';
+                    verificationCounter = data.verificationCounter || 0;
+                    
+                    // Carregar imagens
+                    if (data.images) {
+                        uploadedImages = data.images.map(img => ({
+                            id: img.id || Date.now() + Math.random(),
+                            name: img.name,
+                            data: img.data,
+                            legend: img.legend || ''
+                        }));
                         
-                        // Carregar O.P
-                        if (cells[1]?.querySelector('.op-input')) {
-                            cells[1].querySelector('.op-input').value = rowData.op || '';
-                        }
+                        const preview = document.getElementById('imagePreview');
+                        preview.innerHTML = '';
                         
-                        // Carregar verificações
-                        rowData.verificacoes.forEach((status, verIndex) => {
-                            const cell = cells[verIndex + 2];
-                            if (cell && status) {
-                                const button = cell.querySelector(`.btn-${status}`);
-                                if (button) {
-                                    setStatus(button, status);
-                                }
-                            }
+                        uploadedImages.forEach(image => {
+                            // Criar container da imagem
+                            const container = document.createElement('div');
+                            container.className = 'image-container';
+                            container.setAttribute('data-image-id', image.id);
+                            
+                            // Criar imagem
+                            const img = document.createElement('img');
+                            img.src = image.data;
+                            img.title = image.name;
+                            
+                            // Criar campo de legenda
+                            const legend = document.createElement('textarea');
+                            legend.className = 'image-legend';
+                            legend.placeholder = 'Adicionar legenda...';
+                            legend.rows = 2;
+                            legend.value = image.legend || '';
+                            
+                            // Criar botão de exclusão
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'image-delete-btn';
+                            deleteBtn.innerHTML = '×';
+                            deleteBtn.title = 'Excluir imagem';
+                            deleteBtn.onclick = () => deleteImage(image.id);
+                            
+                            // Montar container
+                            container.appendChild(deleteBtn);
+                            container.appendChild(img);
+                            container.appendChild(legend);
+                            preview.appendChild(container);
+                        });
+                    }
+                    
+                    // Carregar checklist
+                    if (data.checklist && data.checklist.length > 0) {
+                        const tbody = document.getElementById('checklistBody');
+                        tbody.innerHTML = '';
+                        
+                        const sortedChecklist = data.checklist.sort((a, b) => {
+                            const timestampA = parseInt(a.timestamp) || 0;
+                            const timestampB = parseInt(b.timestamp) || 0;
+                            return timestampA - timestampB;
                         });
                         
-                        // Carregar observações
-                        if (cells[cells.length - 1]?.querySelector('.obs-input')) {
-                            cells[cells.length - 1].querySelector('.obs-input').value = rowData.observacoes || '';
-                        }
-                    }
-                });
-                
-                updateSummary();
-                showToast('Dados carregados com sucesso!', 'success');
-            }
-        }
-
-        // Função de debug para testar captura de dados
-        // Para usar: abra o console (F12) e digite: debugDataCapture()
-        function debugDataCapture() {
-            try {
-                console.clear();
-                console.log('=== DEBUG: Testando captura de dados ===');
-                
-                const rows = document.querySelectorAll('#checklistBody tr');
-                console.log(`Total de linhas encontradas: ${rows.length}`);
-                
-                let foundOPs = [];
-                
-                rows.forEach((row, index) => {
-                    const cells = row.querySelectorAll('td');
-                    console.log(`\nLinha ${index + 1}: ${cells.length} células`);
-                    
-                    if (cells.length > 0) {
-                        // Verificar célula de hora
-                        const hourCell = cells[0];
-                        const hourText = hourCell ? hourCell.textContent.trim() : '';
-                        console.log(`  - Hora: "${hourText}"`);
-                        
-                        // Verificar todas as células para encontrar O.P
-                        let opFound = false;
-                        for (let i = 0; i < cells.length; i++) {
-                            const cell = cells[i];
-                            const inputs = cell.querySelectorAll('input');
-                            console.log(`  - Célula ${i}: ${inputs.length} inputs`);
+                        sortedChecklist.forEach(rowData => {
+                            const hasData = rowData.op.trim() !== '' || 
+                                           rowData.verificacoes.some(v => v !== null) || 
+                                           rowData.observacoes.trim() !== '';
                             
-                            inputs.forEach((input, inputIndex) => {
-                                console.log(`    - Input ${inputIndex}: class="${input.className}", value="${input.value}"`);
-                                if (input.classList.contains('op-input')) {
-                                    foundOPs.push(`Linha ${index + 1}: "${input.value}"`);
-                                    opFound = true;
-                                }
-                            });
-                        }
-                        
-                        if (!opFound) {
-                            console.log(`  - ❌ Nenhum input O.P encontrado nesta linha`);
-                        }
+                            if (hasData) {
+                                const row = document.createElement('tr');
+                                row.setAttribute('data-verification-id', rowData.verificationId || Date.now());
+                                row.setAttribute('data-timestamp', rowData.timestamp || Date.now());
+                                
+                                // Hora
+                                const horaCell = document.createElement('td');
+                                horaCell.className = 'hour-cell';
+                                horaCell.textContent = rowData.hora;
+                                horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${rowData.verificationId})" title="Excluir verificação">×</button>`;
+                                row.appendChild(horaCell);
+
+                                // O.P
+                                const opCell = document.createElement('td');
+                                opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P" value="${rowData.op}">`;
+                                row.appendChild(opCell);
+
+                                // Verificações
+                                rowData.verificacoes.forEach((status, index) => {
+                                    const cell = document.createElement('td');
+                                    cell.innerHTML = `
+                                        <div class="status-buttons">
+                                            <button class="status-btn btn-ok ${status === 'ok' ? 'active' : ''}" onclick="setStatus(this, 'ok')" title="OK - Clique para marcar/desmarcar">✓</button>
+                                            <button class="status-btn btn-atencao ${status === 'atencao' ? 'active' : ''}" onclick="setStatus(this, 'atencao')" title="Atenção - Clique para marcar/desmarcar">⚠</button>
+                                            <button class="status-btn btn-nok ${status === 'nok' ? 'active' : ''}" onclick="setStatus(this, 'nok')" title="Não OK - Clique para marcar/desmarcar">✗</button>
+                                        </div>
+                                    `;
+                                    row.appendChild(cell);
+                                });
+
+                                // Observações
+                                const obsCell = document.createElement('td');
+                                obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações" value="${rowData.observacoes}">`;
+                                row.appendChild(obsCell);
+
+                                tbody.appendChild(row);
+                            }
+                        });
                     }
-                });
-                
-                console.log('\n=== RESUMO DOS O.P ENCONTRADOS ===');
-                if (foundOPs.length > 0) {
-                    foundOPs.forEach(op => console.log(op));
-                    console.log(`\n✅ Total: ${foundOPs.length} valores de O.P encontrados`);
+                    
+                    updateSummary();
+                    
+                    if (data.savedAt) {
+                        const lastSaved = new Date(data.savedAt).toLocaleString('pt-BR');
+                        updateSaveStatus('saved');
+                        document.getElementById('saveStatus').textContent = `✅ Último salvamento: ${lastSaved}`;
+                    } else {
+                        updateSaveStatus('saved');
+                    }
+                    
                 } else {
-                    console.log('❌ NENHUM O.P ENCONTRADO!');
-                    console.log('💡 Dica: Certifique-se de que os inputs têm a classe "op-input"');
+                    updateSaveStatus();
                 }
                 
-                return `Debug concluído! Encontrados ${foundOPs.length} valores de O.P.`;
-                
             } catch (error) {
-                console.error('Erro no debug:', error);
-                return 'Erro no debug: ' + error.message;
+                console.error('Erro ao carregar:', error);
+                updateSaveStatus('error');
+                showToast('Erro ao carregar dados!', 'error');
             }
         }
 
-        // Gerar PDF do checklist
-        function generatePDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('l', 'mm', 'a4'); // Paisagem para melhor visualização
+        function updateSaveStatus(status) {
+            const saveStatusEl = document.getElementById('saveStatus');
+            const now = new Date().toLocaleString('pt-BR');
             
-            // Dados do cabeçalho
+            switch (status) {
+                case 'saved':
+                    saveStatusEl.textContent = `✅ Salvo em: ${now}`;
+                    saveStatusEl.className = 'save-status saved';
+                    break;
+                case 'error':
+                    saveStatusEl.textContent = `❌ Erro ao salvar em: ${now}`;
+                    saveStatusEl.className = 'save-status error';
+                    break;
+                case 'loading':
+                    saveStatusEl.textContent = `⏳ Processando...`;
+                    saveStatusEl.className = 'save-status';
+                    break;
+                default:
+                    saveStatusEl.textContent = `💾 Sistema pronto para salvar`;
+                    saveStatusEl.className = 'save-status';
+            }
+        }
+
+        // ===== EXPORT/IMPORT =====
+        
+        function exportData() {
+            try {
+                const data = prepareDataForSave();
+                data.exportedAt = new Date().toISOString();
+                data.exportVersion = '2.0';
+                data.appName = 'Check List CQ Produção - Office 365';
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                    type: 'application/json' 
+                });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                
+                const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                const verificador = data.verificador ? data.verificador.replace(/[^a-zA-Z0-9]/g, '_') : 'Usuario';
+                const fileName = `CheckList_CQ_${dateStr}_${verificador}.json`;
+                
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast('Dados exportados com sucesso!', 'success');
+                
+            } catch (error) {
+                console.error('Erro ao exportar:', error);
+                showToast('Erro ao exportar dados!', 'error');
+            }
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.endsWith('.json')) {
+                showToast('Por favor, selecione um arquivo JSON!', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (!importedData.checklist || !Array.isArray(importedData.checklist)) {
+                        showToast('Arquivo JSON inválido!', 'error');
+                        return;
+                    }
+                    
+                    const message = `Importar dados do arquivo?\n\n` +
+                                  `📅 Data: ${importedData.data || 'Não informada'}\n` +
+                                  `👤 Verificador: ${importedData.verificador || 'Não informado'}\n` +
+                                  `📊 Verificações: ${importedData.checklist.length}\n` +
+                                  `📷 Imagens: ${importedData.images ? importedData.images.length : 0}\n\n` +
+                                  `⚠️ Isso substituirá todos os dados atuais!`;
+                    
+                    if (confirm(message)) {
+                        localStorage.setItem('checklist_cq_producao', JSON.stringify(importedData));
+                        location.reload();
+                    }
+                    
+                } catch (error) {
+                    console.error('Erro ao importar:', error);
+                    showToast('Erro ao ler arquivo JSON!', 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ===== OUTRAS FUNCIONALIDADES =====
+        
+        function generatePDF() {
+            // Atualizar legendas antes de gerar PDF
+            updateImageLegends();
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4');
+            
             const data = document.getElementById('data').value;
             const verificador = document.getElementById('verificador').value;
             
-            // Título
             doc.setFontSize(18);
             doc.setFont(undefined, 'bold');
-            doc.text('CHECK LIST CQ PRODUCAO', 148, 20, { align: 'center' });
+            doc.text('CHECK LIST CQ PRODUCAO - OFFICE 365', 148, 20, { align: 'center' });
             
-            // Informações do cabeçalho
             doc.setFontSize(12);
             doc.setFont(undefined, 'normal');
             doc.text(`Data: ${data || '_____/_____/_____'}`, 20, 35);
             doc.text(`Verificador: ${verificador || '________________________'}`, 150, 35);
             
-            // Preparar dados da tabela com captura robusta
             const tableData = [];
-            const rows = document.querySelectorAll('#checklistBody tr');
-            let currentHour = '';
+            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
             
-            console.log('=== GERANDO PDF: Capturando dados ===');
-            console.log(`Total de linhas encontradas: ${rows.length}`);
-            
-            rows.forEach((row, index) => {
+            rows.forEach((row) => {
                 const cells = row.querySelectorAll('td');
                 
                 if (cells.length > 0) {
-                    // Verificar se é linha com nova hora
-                    const hourCell = cells[0];
-                    let isNewHour = false;
-                    
-                    if (hourCell && hourCell.textContent.trim() && hourCell.textContent.includes(':')) {
-                        currentHour = hourCell.textContent.trim();
-                        isNewHour = true;
-                    }
-                    
                     const rowData = [];
                     
-                    // Hora (só na primeira linha de cada hora)
-                    rowData.push(isNewHour ? currentHour : '');
+                    const hora = cells[0].textContent.replace('×', '').trim();
+                    rowData.push(hora);
                     
-                    // O.P - buscar em todas as células da linha
-                    let opValue = '';
-                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
-                        const cell = cells[cellIndex];
-                        const opInput = cell.querySelector('input.op-input');
-                        if (opInput && opInput.value) {
-                            opValue = opInput.value.trim();
-                            console.log(`Linha ${index + 1}: O.P "${opValue}" encontrado na célula ${cellIndex}`);
-                            break; // Para no primeiro O.P encontrado
-                        }
-                    }
-                    rowData.push(opValue);
+                    const opInput = cells[1].querySelector('.op-input');
+                    rowData.push(opInput ? opInput.value : '');
                     
-                    // Status das verificações - buscar botões ativos
-                    let hasStatus = false;
-                    let statusCount = 0;
-                    
-                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
-                        const cell = cells[cellIndex];
-                        const statusButtons = cell.querySelectorAll('.status-btn');
+                    for (let i = 2; i < cells.length - 1; i++) {
+                        const activeBtn = cells[i].querySelector('.status-btn.active');
+                        let status = '';
                         
-                        if (statusButtons.length > 0) {
-                            // Esta célula tem botões de status
-                            const activeBtn = cell.querySelector('.status-btn.active');
-                            let status = '';
-                            
-                            if (activeBtn?.classList.contains('btn-ok')) {
-                                status = 'OK';
-                                hasStatus = true;
-                            } else if (activeBtn?.classList.contains('btn-atencao')) {
-                                status = 'ATENCAO';
-                                hasStatus = true;
-                            } else if (activeBtn?.classList.contains('btn-nok')) {
-                                status = 'NAO OK';
-                                hasStatus = true;
-                            }
-                            
-                            rowData.push(status);
-                            statusCount++;
-                            
-                            if (status) {
-                                console.log(`Linha ${index + 1}: Status "${status}" na célula ${cellIndex}`);
-                            }
+                        if (activeBtn?.classList.contains('btn-ok')) {
+                            status = 'OK';
+                        } else if (activeBtn?.classList.contains('btn-atencao')) {
+                            status = 'ATENCAO';
+                        } else if (activeBtn?.classList.contains('btn-nok')) {
+                            status = 'NAO OK';
                         }
+                        
+                        rowData.push(status);
                     }
                     
-                    // Garantir que temos 4 colunas de status (pode precisar ajustar)
-                    while (statusCount < 4) {
-                        rowData.push('');
-                        statusCount++;
-                    }
+                    const obsInput = cells[cells.length - 1].querySelector('.obs-input');
+                    rowData.push(obsInput ? obsInput.value : '');
                     
-                    // Observações - buscar input de observações
-                    let obsValue = '';
-                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
-                        const cell = cells[cellIndex];
-                        const obsInput = cell.querySelector('input.obs-input');
-                        if (obsInput) {
-                            obsValue = obsInput.value.trim();
-                            if (obsValue) {
-                                console.log(`Linha ${index + 1}: Observação "${obsValue}" encontrada na célula ${cellIndex}`);
-                            }
-                            break;
-                        }
-                    }
-                    rowData.push(obsValue);
-                    
-                    // Só adicionar se a linha tem conteúdo
-                    const hasContent = opValue !== '' || hasStatus || obsValue !== '';
-                    
-                    if (hasContent) {
-                        tableData.push(rowData);
-                        console.log(`Linha ${index + 1} adicionada ao PDF:`, rowData);
-                    }
+                    tableData.push(rowData);
                 }
             });
             
-            console.log(`=== Total de linhas para PDF: ${tableData.length} ===`);
-            
-            // Cabeçalhos da tabela
             const headers = [
                 'HORA',
                 'O.P',
-                'MATERIAIS O.P/BOM',
-                'PROCESSOS/IT',
-                'MATRIZ COMPETENCIA',
+                'MATERIAIS BOM',
+                'PROCESSOS/INSTRUCAO',
+                'MATRIZ COMPETENC.',
                 'ETIQUETAS',
                 'OBSERVACOES'
             ];
             
-            // Configurar tabela
             doc.autoTable({
                 head: [headers],
                 body: tableData,
@@ -889,32 +1584,32 @@
                     fontSize: 9
                 },
                 columnStyles: {
-                    0: { cellWidth: 20, halign: 'center' }, // HORA
-                    1: { cellWidth: 25, halign: 'center' }, // O.P
-                    2: { cellWidth: 45, halign: 'center' }, // MATERIAIS
-                    3: { cellWidth: 40, halign: 'center' }, // PROCESSOS
-                    4: { cellWidth: 40, halign: 'center' }, // MATRIZ
-                    5: { cellWidth: 30, halign: 'center' }, // ETIQUETAS
-                    6: { cellWidth: 50, halign: 'left' }    // OBSERVAÇÕES
+                    0: { cellWidth: 18, halign: 'center' }, // HORA
+                    1: { cellWidth: 20, halign: 'center' }, // O.P
+                    2: { cellWidth: 35, halign: 'center' }, // MATERIAIS (reduzido)
+                    3: { cellWidth: 40, halign: 'center' }, // PROCESSOS/IT (aumentado)
+                    4: { cellWidth: 35, halign: 'center' }, // MATRIZ (reduzido)
+                    5: { cellWidth: 25, halign: 'center' }, // ETIQUETAS
+                    6: { cellWidth: 45, halign: 'left' }    // OBSERVAÇÕES
                 },
                 didParseCell: function(data) {
-                    // Colorir células baseado no status
+                    // Colorir células baseado no status com cores mais vivas
                     if (data.cell.text[0]) {
                         if (data.cell.text[0] === 'OK') {
-                            data.cell.styles.fillColor = [231, 246, 233];
-                            data.cell.styles.textColor = [39, 174, 96];
+                            data.cell.styles.fillColor = [212, 237, 218]; // Verde mais visível
+                            data.cell.styles.textColor = [21, 87, 36];    // Verde escuro
                             data.cell.styles.fontStyle = 'bold';
-                            data.cell.text[0] = 'OK';
+                            data.cell.styles.fontSize = 9;
                         } else if (data.cell.text[0] === 'ATENCAO') {
-                            data.cell.styles.fillColor = [254, 243, 199];
-                            data.cell.styles.textColor = [243, 156, 18];
+                            data.cell.styles.fillColor = [255, 243, 205]; // Amarelo mais visível
+                            data.cell.styles.textColor = [133, 100, 4];   // Amarelo escuro
                             data.cell.styles.fontStyle = 'bold';
-                            data.cell.text[0] = 'ATENCAO';
+                            data.cell.styles.fontSize = 9;
                         } else if (data.cell.text[0] === 'NAO OK') {
-                            data.cell.styles.fillColor = [253, 237, 237];
-                            data.cell.styles.textColor = [231, 76, 60];
+                            data.cell.styles.fillColor = [248, 215, 218]; // Vermelho mais visível
+                            data.cell.styles.textColor = [114, 28, 36];   // Vermelho escuro
                             data.cell.styles.fontStyle = 'bold';
-                            data.cell.text[0] = 'NAO OK';
+                            data.cell.styles.fontSize = 9;
                         }
                     }
                     
@@ -927,8 +1622,90 @@
                 }
             });
             
-            // Legenda e Resumo com posicionamento correto
-            const finalY = doc.lastAutoTable.finalY + 15;
+            let finalY = doc.lastAutoTable.finalY + 15;
+            
+            // ===== ADICIONAR IMAGENS AO PDF =====
+            if (uploadedImages.length > 0) {
+                // Título da seção de imagens
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text('EVIDÊNCIAS FOTOGRÁFICAS', 148, finalY, { align: 'center' });
+                finalY += 15;
+                
+                // Configuração para layout das imagens
+                const imageWidth = 60;  // largura da imagem no PDF
+                const imageHeight = 45; // altura da imagem no PDF
+                const imagesPerRow = 4;  // imagens por linha
+                const imageSpacing = 70; // espaçamento entre imagens
+                const rowSpacing = 65;   // espaçamento entre linhas
+                
+                let currentX = 20;
+                let currentY = finalY;
+                let imageCount = 0;
+                
+                for (const image of uploadedImages) {
+                    try {
+                        // Adicionar imagem
+                        doc.addImage(
+                            image.data, 
+                            'JPEG', 
+                            currentX, 
+                            currentY, 
+                            imageWidth, 
+                            imageHeight
+                        );
+                        
+                        // Adicionar legenda abaixo da imagem
+                        doc.setFontSize(8);
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        
+                        const legendText = image.legend || image.name || 'Sem legenda';
+                        const legendLines = doc.splitTextToSize(legendText, imageWidth);
+                        doc.text(legendLines, currentX, currentY + imageHeight + 5);
+                        
+                        imageCount++;
+                        
+                        // Calcular posição da próxima imagem
+                        if (imageCount % imagesPerRow === 0) {
+                            // Nova linha
+                            currentX = 20;
+                            currentY += rowSpacing;
+                            
+                            // Verificar se precisa de nova página
+                            if (currentY > 180) { // Próximo da margem inferior
+                                doc.addPage();
+                                currentY = 20;
+                            }
+                        } else {
+                            // Próxima coluna
+                            currentX += imageSpacing;
+                        }
+                        
+                    } catch (error) {
+                        console.error('Erro ao adicionar imagem ao PDF:', error);
+                    }
+                }
+                
+                // Atualizar finalY para continuar após as imagens
+                finalY = currentY + (imageCount % imagesPerRow === 0 ? 0 : rowSpacing);
+                
+                // Se há imagens, garantir espaço extra
+                if (finalY < 180) {
+                    finalY += 20;
+                } else {
+                    doc.addPage();
+                    finalY = 20;
+                }
+            }
+            
+            // ===== RESUMO E LEGENDA =====
+            // Verificar se há espaço suficiente na página atual
+            if (finalY > 160) { // Se está muito próximo da margem inferior
+                doc.addPage();
+                finalY = 20;
+            }
             
             // LEGENDA (lado esquerdo)
             doc.setFontSize(12);
@@ -936,26 +1713,32 @@
             doc.setTextColor(0, 0, 0);
             doc.text('LEGENDA:', 20, finalY);
             
-            doc.setFontSize(10);
+            doc.setFontSize(9);
             doc.setFont(undefined, 'normal');
             
-            // OK
-            doc.setTextColor(39, 174, 96);
-            doc.text('OK = Conforme', 20, finalY + 10);
+            // OK com cor verde
+            doc.setFillColor(212, 237, 218);
+            doc.rect(20, finalY + 5, 5, 5, 'F');
+            doc.setTextColor(21, 87, 36);
+            doc.text('OK = Conforme', 28, finalY + 9);
             
-            // ATENÇÃO  
-            doc.setTextColor(243, 156, 18);
-            doc.text('ATENCAO = Requer atencao', 20, finalY + 18);
+            // ATENÇÃO com cor amarela
+            doc.setFillColor(255, 243, 205);
+            doc.rect(20, finalY + 12, 5, 5, 'F');
+            doc.setTextColor(133, 100, 4);
+            doc.text('ATENCAO = Requer atencao', 28, finalY + 16);
             
-            // NÃO OK
-            doc.setTextColor(231, 76, 60);
-            doc.text('NAO OK = Nao conforme', 20, finalY + 26);
+            // NÃO OK com cor vermelha
+            doc.setFillColor(248, 215, 218);
+            doc.rect(20, finalY + 19, 5, 5, 'F');
+            doc.setTextColor(114, 28, 36);
+            doc.text('NAO OK = Nao conforme', 28, finalY + 23);
             
-            // RESUMO (lado direito, bem afastado)
+            // RESUMO (lado direito, posicionado adequadamente)
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(12);
             doc.setFont(undefined, 'bold');
-            doc.text('RESUMO:', 200, finalY);
+            doc.text('RESUMO:', 170, finalY);
             
             const countOk = document.getElementById('countOk').textContent;
             const countAtencao = document.getElementById('countAtencao').textContent;
@@ -964,59 +1747,65 @@
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             
-            // Contadores do resumo
-            doc.setTextColor(39, 174, 96);
-            doc.text(`OK: ${countOk}`, 200, finalY + 10);
+            // Contadores do resumo com cores correspondentes
+            doc.setFillColor(212, 237, 218);
+            doc.rect(170, finalY + 5, 5, 5, 'F');
+            doc.setTextColor(21, 87, 36);
+            doc.text(`OK: ${countOk}`, 178, finalY + 9);
             
-            doc.setTextColor(243, 156, 18);
-            doc.text(`ATENCAO: ${countAtencao}`, 200, finalY + 18);
+            doc.setFillColor(255, 243, 205);
+            doc.rect(170, finalY + 12, 5, 5, 'F');
+            doc.setTextColor(133, 100, 4);
+            doc.text(`ATENCAO: ${countAtencao}`, 178, finalY + 16);
             
-            doc.setTextColor(231, 76, 60);
-            doc.text(`NAO OK: ${countNok}`, 200, finalY + 26);
+            doc.setFillColor(248, 215, 218);
+            doc.rect(170, finalY + 19, 5, 5, 'F');
+            doc.setTextColor(114, 28, 36);
+            doc.text(`NAO OK: ${countNok}`, 178, finalY + 23);
             
-            // Rodapé (bem abaixo, com posição ajustada)
-            const footerY = finalY + 40;
+            // Rodapé (ajustado para nova posição)
+            const footerY = finalY + 35;
             doc.setFontSize(8);
             doc.setTextColor(128, 128, 128);
             doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 20, footerY);
-            doc.text('Check List CQ Producao - Sistema de Verificacao', 148, footerY, { align: 'center' });
+            doc.text('Check List CQ Producao - Office 365 Integration', 148, footerY, { align: 'center' });
             
-            // Salvar PDF com nome limpo
+            if (uploadedImages.length > 0) {
+                doc.text(`Evidências: ${uploadedImages.length} imagem(ns)`, 220, footerY);
+            }
+            
+            // Salvar PDF
             const dataFormatted = data.replace(/-/g, '');
             const verificadorFormatted = verificador.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
             const fileName = `CheckList_CQ_${dataFormatted}_${verificadorFormatted || 'Verificador'}.pdf`;
             doc.save(fileName);
             
-            showToast('PDF gerado com sucesso!', 'success');
+            showToast('PDF gerado com cores, imagens e layout otimizado!', 'success');
         }
 
-        // Imprimir checklist
-        function printChecklist() {
-            window.print();
-        }
-
-        // Limpar todos os dados
         function clearAll() {
             if (confirm('Tem certeza que deseja limpar todos os dados?')) {
                 document.getElementById('data').value = new Date().toISOString().split('T')[0];
-                document.getElementById('verificador').value = '';
+                // Se conectado ao Office 365, manter o nome
+                if (currentUser) {
+                    document.getElementById('verificador').value = currentUser.name;
+                } else {
+                    document.getElementById('verificador').value = '';
+                }
                 
-                // Limpar todos os inputs e botões
-                document.querySelectorAll('.op-input, .obs-input').forEach(input => {
-                    input.value = '';
-                });
+                const tbody = document.getElementById('checklistBody');
+                showEmptyState();
                 
-                document.querySelectorAll('.status-btn.active').forEach(btn => {
-                    btn.classList.remove('active');
-                });
+                document.getElementById('imagePreview').innerHTML = '';
+                uploadedImages = [];
                 
+                verificationCounter = 0;
                 updateSummary();
                 localStorage.removeItem('checklist_cq_producao');
                 showToast('Dados limpos com sucesso!', 'success');
             }
         }
 
-        // Mostrar toast de notificação
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -1033,38 +1822,32 @@
             }, 3000);
         }
 
-        // Inicializar aplicação
-        document.addEventListener('DOMContentLoaded', function() {
-            generateChecklist();
-            loadData();
-        });
-
         // Auto-save a cada 30 segundos
         setInterval(() => {
-            const hasActiveButtons = document.querySelector('.status-btn.active');
-            const hasOpInput = document.querySelector('.op-input');
-            const hasObsInput = document.querySelector('.obs-input');
+            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
+            let hasRealData = false;
             
-            if (hasActiveButtons || 
-                (hasOpInput && hasOpInput.value) || 
-                (hasObsInput && hasObsInput.value)) {
-                saveData();
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    const opValue = cells[1]?.querySelector('.op-input')?.value || '';
+                    const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
+                    const hasStatus = cells[2]?.querySelector('.status-btn.active') !== null;
+                    
+                    if (opValue.trim() !== '' || hasStatus || obsValue.trim() !== '') {
+                        hasRealData = true;
+                    }
+                }
+            });
+            
+            if (hasRealData) {
+                try {
+                    saveData();
+                } catch (error) {
+                    console.error('Erro no auto-save:', error);
+                }
             }
         }, 30000);
-
-        // Estilos de impressão
-        const printStyles = `
-            <style>
-                @media print {
-                    body { background: white !important; }
-                    .actions, .toast { display: none !important; }
-                    .container { box-shadow: none !important; }
-                    .checklist-table { page-break-inside: avoid; }
-                    .header { background: #2c3e50 !important; -webkit-print-color-adjust: exact; }
-                }
-            </style>
-        `;
-        document.head.insertAdjacentHTML('beforeend', printStyles);
     </script>
 </body>
 </html>
