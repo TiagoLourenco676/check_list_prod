@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check List CQ Produção</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .info-group {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-group input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+        }
+
+        .legend {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 3px solid #e9ecef;
+        }
+
+        .legend h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 1.3em;
+        }
+
+        .legend-items {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .legend-ok { border-left: 4px solid #27ae60; }
+        .legend-atencao { border-left: 4px solid #f39c12; }
+        .legend-nok { border-left: 4px solid #e74c3c; }
+
+        .checklist-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .checklist-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .checklist-table th {
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white;
+            padding: 15px 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 120px;
+        }
+
+        .checklist-table th:first-child {
+            min-width: 80px;
+        }
+
+        .checklist-table td {
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        .checklist-table tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.001);
+            transition: all 0.2s ease;
+        }
+
+        .hour-cell {
+            font-weight: bold;
+            font-size: 16px;
+            background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
+            color: #2c3e50;
+        }
+
+        .op-input {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .op-input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .status-buttons {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+
+        .status-btn {
+            width: 35px;
+            height: 35px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .status-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .status-btn.active::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 3px solid currentColor;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+
+        .btn-ok {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-ok.active {
+            background: #2ecc71;
+            box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5);
+            transform: scale(1.2);
+            border: 3px solid #27ae60;
+            animation: pulse 2s infinite;
+        }
+
+        .btn-atencao {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-atencao.active {
+            background: #e67e22;
+            box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5);
+            transform: scale(1.2);
+            border: 3px solid #d68910;
+            animation: pulse 2s infinite;
+        }
+
+        .btn-nok {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-nok.active {
+            background: #c0392b;
+            box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5);
+            transform: scale(1.2);
+            border: 3px solid #a93226;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.2); }
+            100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
+        }
+
+        .btn-ok.active {
+            animation-name: pulse-green;
+        }
+
+        .btn-atencao.active {
+            animation-name: pulse-yellow;
+        }
+
+        .btn-nok.active {
+            animation-name: pulse-red;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.2); }
+            100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
+        }
+
+        @keyframes pulse-yellow {
+            0% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(230, 126, 34, 0.2); }
+            100% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
+            50% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0.2); }
+            100% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
+        }
+
+        .obs-input {
+            width: 150px;
+            padding: 8px;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .obs-input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            width: 200px;
+        }
+
+        .actions {
+            padding: 30px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+        }
+
+        .btn-print {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+        }
+
+        .btn-pdf {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+        }
+
+        .btn-clear {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .summary h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 120px;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-ok .stat-number { color: #27ae60; }
+        .stat-atencao .stat-number { color: #f39c12; }
+        .stat-nok .stat-number { color: #e74c3c; }
+
+        @media (max-width: 768px) {
+            .header-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .legend-items {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .checklist-table th,
+            .checklist-table td {
+                padding: 8px 4px;
+                font-size: 11px;
+            }
+            
+            .actions {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #27ae60;
+            color: white;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CHECK LIST CQ PRODUÇÃO</h1>
+            <div class="header-info">
+                <div class="info-group">
+                    <label for="data">Data:</label>
+                    <input type="date" id="data" name="data">
+                </div>
+                <div class="info-group">
+                    <label for="verificador">Verificador:</label>
+                    <input type="text" id="verificador" name="verificador" placeholder="Nome do verificador">
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>Legenda de Avaliação</h3>
+            <div class="legend-items">
+                <div class="legend-item legend-ok">
+                    <span class="status-btn btn-ok">✓</span>
+                    <span>OK</span>
+                </div>
+                <div class="legend-item legend-atencao">
+                    <span class="status-btn btn-atencao">⚠</span>
+                    <span>ATENÇÃO</span>
+                </div>
+                <div class="legend-item legend-nok">
+                    <span class="status-btn btn-nok">✗</span>
+                    <span>NÃO OK</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="checklist-container">
+            <table class="checklist-table" id="checklistTable">
+                <thead>
+                    <tr>
+                        <th>HORA</th>
+                        <th>O.P</th>
+                        <th>COMPARAÇÃO MATERIAIS O.P E B.O.M UTILIZADOS</th>
+                        <th>PROCESSOS/INSTRUÇÃO DE TRABALHO</th>
+                        <th>MATRIZ DE COMPETÊNCIA</th>
+                        <th>ETIQUETAS</th>
+                        <th>OBSERVAÇÕES</th>
+                    </tr>
+                </thead>
+                <tbody id="checklistBody">
+                </tbody>
+            </table>
+
+            <div class="summary" id="summary">
+                <h3>Resumo da Verificação</h3>
+                <div class="summary-stats">
+                    <div class="stat-item stat-ok">
+                        <div class="stat-number" id="countOk">0</div>
+                        <div>OK</div>
+                    </div>
+                    <div class="stat-item stat-atencao">
+                        <div class="stat-number" id="countAtencao">0</div>
+                        <div>ATENÇÃO</div>
+                    </div>
+                    <div class="stat-item stat-nok">
+                        <div class="stat-number" id="countNok">0</div>
+                        <div>NÃO OK</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="action-btn btn-save" onclick="saveData()">💾 Salvar</button>
+            <button class="action-btn btn-pdf" onclick="generatePDF()">📄 Gerar PDF</button>
+            <button class="action-btn btn-print" onclick="printChecklist()">🖨️ Imprimir</button>
+            <button class="action-btn btn-clear" onclick="clearAll()">🗑️ Limpar Tudo</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Horários de verificação (7h às 16h)
+        const horarios = [
+            '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
+            '13:00', '14:00', '15:00', '16:00'
+        ];
+
+        // Colunas de verificação
+        const colunas = [
+            'materiais', 'processos', 'competencia', 'etiquetas'
+        ];
+
+        // Inicializar data atual
+        document.getElementById('data').value = new Date().toISOString().split('T')[0];
+
+        // Gerar tabela do checklist
+        function generateChecklist() {
+            const tbody = document.getElementById('checklistBody');
+            tbody.innerHTML = '';
+
+            horarios.forEach(hora => {
+                // Criar 4 linhas por hora (como no Excel original)
+                for (let i = 0; i < 4; i++) {
+                    const row = document.createElement('tr');
+                    
+                    // Coluna de hora (apenas na primeira linha de cada hora)
+                    const horaCell = document.createElement('td');
+                    horaCell.className = 'hour-cell';
+                    if (i === 0) {
+                        horaCell.textContent = hora;
+                        horaCell.rowSpan = 4;
+                    }
+                    if (i === 0) row.appendChild(horaCell);
+
+                    // Coluna O.P
+                    const opCell = document.createElement('td');
+                    opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P">`;
+                    row.appendChild(opCell);
+
+                    // Colunas de verificação
+                    colunas.forEach(coluna => {
+                        const cell = document.createElement('td');
+                        cell.innerHTML = `
+                            <div class="status-buttons">
+                                <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')" title="OK">✓</button>
+                                <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao')" title="Atenção">⚠</button>
+                                <button class="status-btn btn-nok" onclick="setStatus(this, 'nok')" title="Não OK">✗</button>
+                            </div>
+                        `;
+                        row.appendChild(cell);
+                    });
+
+                    // Coluna de observações
+                    const obsCell = document.createElement('td');
+                    obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações">`;
+                    row.appendChild(obsCell);
+
+                    tbody.appendChild(row);
+                }
+            });
+        }
+
+        // Definir status dos botões
+        function setStatus(button, status) {
+            const buttons = button.parentElement.querySelectorAll('.status-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            updateSummary();
+        }
+
+        // Atualizar resumo
+        function updateSummary() {
+            const activeButtons = document.querySelectorAll('.status-btn.active');
+            let countOk = 0, countAtencao = 0, countNok = 0;
+
+            activeButtons.forEach(btn => {
+                if (btn.classList.contains('btn-ok')) countOk++;
+                else if (btn.classList.contains('btn-atencao')) countAtencao++;
+                else if (btn.classList.contains('btn-nok')) countNok++;
+            });
+
+            document.getElementById('countOk').textContent = countOk;
+            document.getElementById('countAtencao').textContent = countAtencao;
+            document.getElementById('countNok').textContent = countNok;
+        }
+
+        // Salvar dados
+        function saveData() {
+            const data = {
+                data: document.getElementById('data').value,
+                verificador: document.getElementById('verificador').value,
+                checklist: []
+            };
+
+            const rows = document.querySelectorAll('#checklistBody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    const rowData = {
+                        op: cells[1]?.querySelector('.op-input')?.value || '',
+                        verificacoes: [],
+                        observacoes: cells[cells.length - 1]?.querySelector('.obs-input')?.value || ''
+                    };
+
+                    // Capturar status das verificações
+                    for (let i = 2; i < cells.length - 1; i++) {
+                        const activeBtn = cells[i]?.querySelector('.status-btn.active');
+                        let status = null;
+                        if (activeBtn?.classList.contains('btn-ok')) status = 'ok';
+                        else if (activeBtn?.classList.contains('btn-atencao')) status = 'atencao';
+                        else if (activeBtn?.classList.contains('btn-nok')) status = 'nok';
+                        rowData.verificacoes.push(status);
+                    }
+                    
+                    data.checklist.push(rowData);
+                }
+            });
+
+            // Simular salvamento (em um sistema real, enviaria para servidor)
+            localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
+            showToast('Dados salvos com sucesso!', 'success');
+        }
+
+        // Carregar dados salvos
+        function loadData() {
+            const saved = localStorage.getItem('checklist_cq_producao');
+            if (saved) {
+                const data = JSON.parse(saved);
+                document.getElementById('data').value = data.data || '';
+                document.getElementById('verificador').value = data.verificador || '';
+                
+                // Carregar dados da checklist
+                const rows = document.querySelectorAll('#checklistBody tr');
+                data.checklist.forEach((rowData, index) => {
+                    if (rows[index]) {
+                        const cells = rows[index].querySelectorAll('td');
+                        
+                        // Carregar O.P
+                        if (cells[1]?.querySelector('.op-input')) {
+                            cells[1].querySelector('.op-input').value = rowData.op || '';
+                        }
+                        
+                        // Carregar verificações
+                        rowData.verificacoes.forEach((status, verIndex) => {
+                            const cell = cells[verIndex + 2];
+                            if (cell && status) {
+                                const button = cell.querySelector(`.btn-${status}`);
+                                if (button) {
+                                    setStatus(button, status);
+                                }
+                            }
+                        });
+                        
+                        // Carregar observações
+                        if (cells[cells.length - 1]?.querySelector('.obs-input')) {
+                            cells[cells.length - 1].querySelector('.obs-input').value = rowData.observacoes || '';
+                        }
+                    }
+                });
+                
+                updateSummary();
+                showToast('Dados carregados com sucesso!', 'success');
+            }
+        }
+
+        // Função de debug para testar captura de dados
+        // Para usar: abra o console (F12) e digite: debugDataCapture()
+        function debugDataCapture() {
+            try {
+                console.clear();
+                console.log('=== DEBUG: Testando captura de dados ===');
+                
+                const rows = document.querySelectorAll('#checklistBody tr');
+                console.log(`Total de linhas encontradas: ${rows.length}`);
+                
+                let foundOPs = [];
+                
+                rows.forEach((row, index) => {
+                    const cells = row.querySelectorAll('td');
+                    console.log(`\nLinha ${index + 1}: ${cells.length} células`);
+                    
+                    if (cells.length > 0) {
+                        // Verificar célula de hora
+                        const hourCell = cells[0];
+                        const hourText = hourCell ? hourCell.textContent.trim() : '';
+                        console.log(`  - Hora: "${hourText}"`);
+                        
+                        // Verificar todas as células para encontrar O.P
+                        let opFound = false;
+                        for (let i = 0; i < cells.length; i++) {
+                            const cell = cells[i];
+                            const inputs = cell.querySelectorAll('input');
+                            console.log(`  - Célula ${i}: ${inputs.length} inputs`);
+                            
+                            inputs.forEach((input, inputIndex) => {
+                                console.log(`    - Input ${inputIndex}: class="${input.className}", value="${input.value}"`);
+                                if (input.classList.contains('op-input')) {
+                                    foundOPs.push(`Linha ${index + 1}: "${input.value}"`);
+                                    opFound = true;
+                                }
+                            });
+                        }
+                        
+                        if (!opFound) {
+                            console.log(`  - ❌ Nenhum input O.P encontrado nesta linha`);
+                        }
+                    }
+                });
+                
+                console.log('\n=== RESUMO DOS O.P ENCONTRADOS ===');
+                if (foundOPs.length > 0) {
+                    foundOPs.forEach(op => console.log(op));
+                    console.log(`\n✅ Total: ${foundOPs.length} valores de O.P encontrados`);
+                } else {
+                    console.log('❌ NENHUM O.P ENCONTRADO!');
+                    console.log('💡 Dica: Certifique-se de que os inputs têm a classe "op-input"');
+                }
+                
+                return `Debug concluído! Encontrados ${foundOPs.length} valores de O.P.`;
+                
+            } catch (error) {
+                console.error('Erro no debug:', error);
+                return 'Erro no debug: ' + error.message;
+            }
+        }
+
+        // Gerar PDF do checklist
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // Paisagem para melhor visualização
+            
+            // Dados do cabeçalho
+            const data = document.getElementById('data').value;
+            const verificador = document.getElementById('verificador').value;
+            
+            // Título
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            doc.text('CHECK LIST CQ PRODUCAO', 148, 20, { align: 'center' });
+            
+            // Informações do cabeçalho
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Data: ${data || '_____/_____/_____'}`, 20, 35);
+            doc.text(`Verificador: ${verificador || '________________________'}`, 150, 35);
+            
+            // Preparar dados da tabela com captura robusta
+            const tableData = [];
+            const rows = document.querySelectorAll('#checklistBody tr');
+            let currentHour = '';
+            
+            console.log('=== GERANDO PDF: Capturando dados ===');
+            console.log(`Total de linhas encontradas: ${rows.length}`);
+            
+            rows.forEach((row, index) => {
+                const cells = row.querySelectorAll('td');
+                
+                if (cells.length > 0) {
+                    // Verificar se é linha com nova hora
+                    const hourCell = cells[0];
+                    let isNewHour = false;
+                    
+                    if (hourCell && hourCell.textContent.trim() && hourCell.textContent.includes(':')) {
+                        currentHour = hourCell.textContent.trim();
+                        isNewHour = true;
+                    }
+                    
+                    const rowData = [];
+                    
+                    // Hora (só na primeira linha de cada hora)
+                    rowData.push(isNewHour ? currentHour : '');
+                    
+                    // O.P - buscar em todas as células da linha
+                    let opValue = '';
+                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+                        const cell = cells[cellIndex];
+                        const opInput = cell.querySelector('input.op-input');
+                        if (opInput && opInput.value) {
+                            opValue = opInput.value.trim();
+                            console.log(`Linha ${index + 1}: O.P "${opValue}" encontrado na célula ${cellIndex}`);
+                            break; // Para no primeiro O.P encontrado
+                        }
+                    }
+                    rowData.push(opValue);
+                    
+                    // Status das verificações - buscar botões ativos
+                    let hasStatus = false;
+                    let statusCount = 0;
+                    
+                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+                        const cell = cells[cellIndex];
+                        const statusButtons = cell.querySelectorAll('.status-btn');
+                        
+                        if (statusButtons.length > 0) {
+                            // Esta célula tem botões de status
+                            const activeBtn = cell.querySelector('.status-btn.active');
+                            let status = '';
+                            
+                            if (activeBtn?.classList.contains('btn-ok')) {
+                                status = 'OK';
+                                hasStatus = true;
+                            } else if (activeBtn?.classList.contains('btn-atencao')) {
+                                status = 'ATENCAO';
+                                hasStatus = true;
+                            } else if (activeBtn?.classList.contains('btn-nok')) {
+                                status = 'NAO OK';
+                                hasStatus = true;
+                            }
+                            
+                            rowData.push(status);
+                            statusCount++;
+                            
+                            if (status) {
+                                console.log(`Linha ${index + 1}: Status "${status}" na célula ${cellIndex}`);
+                            }
+                        }
+                    }
+                    
+                    // Garantir que temos 4 colunas de status (pode precisar ajustar)
+                    while (statusCount < 4) {
+                        rowData.push('');
+                        statusCount++;
+                    }
+                    
+                    // Observações - buscar input de observações
+                    let obsValue = '';
+                    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+                        const cell = cells[cellIndex];
+                        const obsInput = cell.querySelector('input.obs-input');
+                        if (obsInput) {
+                            obsValue = obsInput.value.trim();
+                            if (obsValue) {
+                                console.log(`Linha ${index + 1}: Observação "${obsValue}" encontrada na célula ${cellIndex}`);
+                            }
+                            break;
+                        }
+                    }
+                    rowData.push(obsValue);
+                    
+                    // Só adicionar se a linha tem conteúdo
+                    const hasContent = opValue !== '' || hasStatus || obsValue !== '';
+                    
+                    if (hasContent) {
+                        tableData.push(rowData);
+                        console.log(`Linha ${index + 1} adicionada ao PDF:`, rowData);
+                    }
+                }
+            });
+            
+            console.log(`=== Total de linhas para PDF: ${tableData.length} ===`);
+            
+            // Cabeçalhos da tabela
+            const headers = [
+                'HORA',
+                'O.P',
+                'MATERIAIS O.P/BOM',
+                'PROCESSOS/IT',
+                'MATRIZ COMPETENCIA',
+                'ETIQUETAS',
+                'OBSERVACOES'
+            ];
+            
+            // Configurar tabela
+            doc.autoTable({
+                head: [headers],
+                body: tableData,
+                startY: 45,
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 3,
+                    valign: 'middle',
+                    halign: 'center'
+                },
+                headStyles: {
+                    fillColor: [44, 62, 80],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 9
+                },
+                columnStyles: {
+                    0: { cellWidth: 20, halign: 'center' }, // HORA
+                    1: { cellWidth: 25, halign: 'center' }, // O.P
+                    2: { cellWidth: 45, halign: 'center' }, // MATERIAIS
+                    3: { cellWidth: 40, halign: 'center' }, // PROCESSOS
+                    4: { cellWidth: 40, halign: 'center' }, // MATRIZ
+                    5: { cellWidth: 30, halign: 'center' }, // ETIQUETAS
+                    6: { cellWidth: 50, halign: 'left' }    // OBSERVAÇÕES
+                },
+                didParseCell: function(data) {
+                    // Colorir células baseado no status
+                    if (data.cell.text[0]) {
+                        if (data.cell.text[0] === 'OK') {
+                            data.cell.styles.fillColor = [231, 246, 233];
+                            data.cell.styles.textColor = [39, 174, 96];
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.text[0] = 'OK';
+                        } else if (data.cell.text[0] === 'ATENCAO') {
+                            data.cell.styles.fillColor = [254, 243, 199];
+                            data.cell.styles.textColor = [243, 156, 18];
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.text[0] = 'ATENCAO';
+                        } else if (data.cell.text[0] === 'NAO OK') {
+                            data.cell.styles.fillColor = [253, 237, 237];
+                            data.cell.styles.textColor = [231, 76, 60];
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.text[0] = 'NAO OK';
+                        }
+                    }
+                    
+                    // Destacar células de hora
+                    if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].includes(':')) {
+                        data.cell.styles.fillColor = [236, 240, 241];
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.textColor = [44, 62, 80];
+                    }
+                }
+            });
+            
+            // Legenda e Resumo com posicionamento correto
+            const finalY = doc.lastAutoTable.finalY + 15;
+            
+            // LEGENDA (lado esquerdo)
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('LEGENDA:', 20, finalY);
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            // OK
+            doc.setTextColor(39, 174, 96);
+            doc.text('OK = Conforme', 20, finalY + 10);
+            
+            // ATENÇÃO  
+            doc.setTextColor(243, 156, 18);
+            doc.text('ATENCAO = Requer atencao', 20, finalY + 18);
+            
+            // NÃO OK
+            doc.setTextColor(231, 76, 60);
+            doc.text('NAO OK = Nao conforme', 20, finalY + 26);
+            
+            // RESUMO (lado direito, bem afastado)
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('RESUMO:', 200, finalY);
+            
+            const countOk = document.getElementById('countOk').textContent;
+            const countAtencao = document.getElementById('countAtencao').textContent;
+            const countNok = document.getElementById('countNok').textContent;
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            // Contadores do resumo
+            doc.setTextColor(39, 174, 96);
+            doc.text(`OK: ${countOk}`, 200, finalY + 10);
+            
+            doc.setTextColor(243, 156, 18);
+            doc.text(`ATENCAO: ${countAtencao}`, 200, finalY + 18);
+            
+            doc.setTextColor(231, 76, 60);
+            doc.text(`NAO OK: ${countNok}`, 200, finalY + 26);
+            
+            // Rodapé (bem abaixo, com posição ajustada)
+            const footerY = finalY + 40;
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 20, footerY);
+            doc.text('Check List CQ Producao - Sistema de Verificacao', 148, footerY, { align: 'center' });
+            
+            // Salvar PDF com nome limpo
+            const dataFormatted = data.replace(/-/g, '');
+            const verificadorFormatted = verificador.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+            const fileName = `CheckList_CQ_${dataFormatted}_${verificadorFormatted || 'Verificador'}.pdf`;
+            doc.save(fileName);
+            
+            showToast('PDF gerado com sucesso!', 'success');
+        }
+
+        // Imprimir checklist
+        function printChecklist() {
+            window.print();
+        }
+
+        // Limpar todos os dados
+        function clearAll() {
+            if (confirm('Tem certeza que deseja limpar todos os dados?')) {
+                document.getElementById('data').value = new Date().toISOString().split('T')[0];
+                document.getElementById('verificador').value = '';
+                
+                // Limpar todos os inputs e botões
+                document.querySelectorAll('.op-input, .obs-input').forEach(input => {
+                    input.value = '';
+                });
+                
+                document.querySelectorAll('.status-btn.active').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                updateSummary();
+                localStorage.removeItem('checklist_cq_producao');
+                showToast('Dados limpos com sucesso!', 'success');
+            }
+        }
+
+        // Mostrar toast de notificação
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            
+            if (type === 'error') {
+                toast.style.background = '#e74c3c';
+            } else {
+                toast.style.background = '#27ae60';
+            }
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Inicializar aplicação
+        document.addEventListener('DOMContentLoaded', function() {
+            generateChecklist();
+            loadData();
+        });
+
+        // Auto-save a cada 30 segundos
+        setInterval(() => {
+            const hasActiveButtons = document.querySelector('.status-btn.active');
+            const hasOpInput = document.querySelector('.op-input');
+            const hasObsInput = document.querySelector('.obs-input');
+            
+            if (hasActiveButtons || 
+                (hasOpInput && hasOpInput.value) || 
+                (hasObsInput && hasObsInput.value)) {
+                saveData();
+            }
+        }, 30000);
+
+        // Estilos de impressão
+        const printStyles = `
+            <style>
+                @media print {
+                    body { background: white !important; }
+                    .actions, .toast { display: none !important; }
+                    .container { box-shadow: none !important; }
+                    .checklist-table { page-break-inside: avoid; }
+                    .header { background: #2c3e50 !important; -webkit-print-color-adjust: exact; }
+                }
+            </style>
+        `;
+        document.head.insertAdjacentHTML('beforeend', printStyles);
+    </script>
+</body>
+</html>
