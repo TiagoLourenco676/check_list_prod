@@ -294,6 +294,25 @@
             position: relative;
         }
 
+        /* Novos estilos para validação de horários */
+        .hour-cell.time-valid {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .hour-cell.time-warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+
+        .hour-cell.time-danger {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
         .delete-row-btn {
             position: absolute;
             top: 2px;
@@ -842,6 +861,67 @@
             statusEl.className = `office365-status ${status}`;
         }
 
+        // ===== FUNÇÕES DE VALIDAÇÃO DE HORÁRIO =====
+        
+        // Converter hora (HH:MM) para minutos
+        function timeToMinutes(timeStr) {
+            const parts = timeStr.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+
+        // Obter todas as verificações existentes ordenadas por hora
+        function getExistingVerifications() {
+            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
+            const verifications = [];
+            
+            rows.forEach(row => {
+                const hourCell = row.querySelector('.hour-cell');
+                if (hourCell) {
+                    const timeText = hourCell.textContent.replace('×', '').trim();
+                    if (timeText.includes(':')) {
+                        verifications.push({
+                            time: timeText,
+                            minutes: timeToMinutes(timeText)
+                        });
+                    }
+                }
+            });
+            
+            return verifications.sort((a, b) => a.minutes - b.minutes);
+        }
+
+        // Validar horário da nova verificação
+        function validateVerificationTime(currentTime) {
+            const currentMinutes = timeToMinutes(currentTime);
+            const existingVerifications = getExistingVerifications();
+            
+            // Se é a primeira verificação
+            if (existingVerifications.length === 0) {
+                const maxFirstTime = timeToMinutes('08:00');
+                
+                if (currentMinutes <= maxFirstTime) {
+                    return 'time-valid'; // Verde - dentro do prazo
+                } else if (currentMinutes <= maxFirstTime + 120) { // até 2h depois
+                    return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                } else {
+                    return 'time-danger'; // Vermelho - mais de 2h atrasado
+                }
+            }
+            
+            // Se não é a primeira verificação
+            const lastVerification = existingVerifications[existingVerifications.length - 1];
+            const timeDifference = currentMinutes - lastVerification.minutes;
+            const maxInterval = 65; // 1h05min
+            
+            if (timeDifference <= maxInterval) {
+                return 'time-valid'; // Verde - dentro do intervalo
+            } else if (timeDifference <= 120) { // até 2h
+                return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+            } else {
+                return 'time-danger'; // Vermelho - mais de 2h de intervalo
+            }
+        }
+
         // ===== FUNCIONALIDADES CORE =====
         
         function getCurrentTime() {
@@ -868,10 +948,15 @@
             row.setAttribute('data-verification-id', verificationCounter);
             row.setAttribute('data-timestamp', Date.now());
             
-            // Coluna de hora
+            // Coluna de hora com validação
             const horaCell = document.createElement('td');
             horaCell.className = 'hour-cell';
             horaCell.textContent = currentTime;
+            
+            // Aplicar validação de horário
+            const timeValidationClass = validateVerificationTime(currentTime);
+            horaCell.classList.add(timeValidationClass);
+            
             horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${verificationCounter})" title="Excluir verificação">×</button>`;
             row.appendChild(horaCell);
 
@@ -909,7 +994,17 @@
                 }
             }, 300);
 
-            showToast('Nova verificação adicionada!', 'success');
+            // Mostrar toast com informação sobre a validação
+            let toastMessage = 'Nova verificação adicionada!';
+            if (timeValidationClass === 'time-valid') {
+                toastMessage += ' ✅ Horário dentro do prazo.';
+            } else if (timeValidationClass === 'time-warning') {
+                toastMessage += ' ⚠️ Horário com atraso moderado.';
+            } else if (timeValidationClass === 'time-danger') {
+                toastMessage += ' ❌ Horário com atraso significativo.';
+            }
+            
+            showToast(toastMessage, timeValidationClass === 'time-valid' ? 'success' : 'warning');
             updateSummary();
         }
 
@@ -1344,10 +1439,17 @@
                                 row.setAttribute('data-verification-id', rowData.verificationId || Date.now());
                                 row.setAttribute('data-timestamp', rowData.timestamp || Date.now());
                                 
-                                // Hora
+                                // Hora com validação
                                 const horaCell = document.createElement('td');
                                 horaCell.className = 'hour-cell';
                                 horaCell.textContent = rowData.hora;
+                                
+                                // Aplicar validação de horário ao carregar
+                                if (rowData.hora.includes(':')) {
+                                    const timeValidationClass = validateVerificationTime(rowData.hora);
+                                    horaCell.classList.add(timeValidationClass);
+                                }
+                                
                                 horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${rowData.verificationId})" title="Excluir verificação">×</button>`;
                                 row.appendChild(horaCell);
 
@@ -1813,6 +1915,8 @@
             
             if (type === 'error') {
                 toast.style.background = '#e74c3c';
+            } else if (type === 'warning') {
+                toast.style.background = '#f39c12';
             } else {
                 toast.style.background = '#27ae60';
             }
