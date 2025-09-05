@@ -1601,7 +1601,7 @@
             event.target.value = '';
         }
 
-        // ===== OUTRAS FUNCIONALIDADES =====
+        // ===== GERAÇÃO DE PDF COM CORES DE VALIDAÇÃO DE HORÁRIO =====
         
         function generatePDF() {
             // Atualizar legendas antes de gerar PDF
@@ -1623,9 +1623,10 @@
             doc.text(`Verificador: ${verificador || '________________________'}`, 150, 35);
             
             const tableData = [];
+            const hourValidationData = []; // Array para armazenar informações de validação de horário
             const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
             
-            rows.forEach((row) => {
+            rows.forEach((row, rowIndex) => {
                 const cells = row.querySelectorAll('td');
                 
                 if (cells.length > 0) {
@@ -1633,6 +1634,18 @@
                     
                     const hora = cells[0].textContent.replace('×', '').trim();
                     rowData.push(hora);
+                    
+                    // Capturar informação de validação de horário
+                    const hourCell = cells[0];
+                    let hourValidation = 'default';
+                    if (hourCell.classList.contains('time-valid')) {
+                        hourValidation = 'valid';
+                    } else if (hourCell.classList.contains('time-warning')) {
+                        hourValidation = 'warning';
+                    } else if (hourCell.classList.contains('time-danger')) {
+                        hourValidation = 'danger';
+                    }
+                    hourValidationData.push(hourValidation);
                     
                     const opInput = cells[1].querySelector('.op-input');
                     rowData.push(opInput ? opInput.value : '');
@@ -1715,11 +1728,32 @@
                         }
                     }
                     
-                    // Destacar células de hora
+                    // Aplicar cores às células de hora baseado na validação de horário
                     if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].includes(':')) {
-                        data.cell.styles.fillColor = [236, 240, 241];
-                        data.cell.styles.fontStyle = 'bold';
-                        data.cell.styles.textColor = [44, 62, 80];
+                        const rowIndex = data.row.index;
+                        const validation = hourValidationData[rowIndex];
+                        
+                        if (validation === 'valid') {
+                            // Verde - horário válido
+                            data.cell.styles.fillColor = [212, 237, 218];
+                            data.cell.styles.textColor = [21, 87, 36];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (validation === 'warning') {
+                            // Amarelo - horário com atenção
+                            data.cell.styles.fillColor = [255, 243, 205];
+                            data.cell.styles.textColor = [133, 100, 4];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (validation === 'danger') {
+                            // Vermelho - horário crítico
+                            data.cell.styles.fillColor = [248, 215, 218];
+                            data.cell.styles.textColor = [114, 28, 36];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            // Cor padrão para horários sem validação específica
+                            data.cell.styles.fillColor = [236, 240, 241];
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.textColor = [44, 62, 80];
+                        }
                     }
                 }
             });
