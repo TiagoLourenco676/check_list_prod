@@ -67,6 +67,167 @@ function generatePDF() {
                 }
             });
             
+            let finalY = doc.lastAutoTable.finalY + 15;
+            
+            // ===== ADICIONAR IMAGENS AO PDF =====
+            if (uploadedImages.length > 0) {
+                // Título da seção de imagens
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text('EVIDÊNCIAS FOTOGRÁFICAS', 148, finalY, { align: 'center' });
+                finalY += 15;
+                
+                // Configuração para layout das imagens
+                const imageWidth = 60;  // largura da imagem no PDF
+                const imageHeight = 45; // altura da imagem no PDF
+                const imagesPerRow = 4;  // imagens por linha
+                const imageSpacing = 70; // espaçamento entre imagens
+                const rowSpacing = 65;   // espaçamento entre linhas
+                
+                let currentX = 20;
+                let currentY = finalY;
+                let imageCount = 0;
+                
+                for (const image of uploadedImages) {
+                    try {
+                        // Adicionar imagem
+                        doc.addImage(
+                            image.data, 
+                            'JPEG', 
+                            currentX, 
+                            currentY, 
+                            imageWidth, 
+                            imageHeight
+                        );
+                        
+                        // Adicionar legenda abaixo da imagem
+                        doc.setFontSize(8);
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        
+                        const legendText = image.legend || image.name || 'Sem legenda';
+                        const legendLines = doc.splitTextToSize(legendText, imageWidth);
+                        doc.text(legendLines, currentX, currentY + imageHeight + 5);
+                        
+                        imageCount++;
+                        
+                        // Calcular posição da próxima imagem
+                        if (imageCount % imagesPerRow === 0) {
+                            // Nova linha
+                            currentX = 20;
+                            currentY += rowSpacing;
+                            
+                            // Verificar se precisa de nova página
+                            if (currentY > 180) { // Próximo da margem inferior
+                                doc.addPage();
+                                currentY = 20;
+                            }
+                        } else {
+                            // Próxima coluna
+                            currentX += imageSpacing;
+                        }
+                        
+                    } catch (error) {
+                        console.error('Erro ao adicionar imagem ao PDF:', error);
+                    }
+                }
+                
+                // Atualizar finalY para continuar após as imagens
+                finalY = currentY + (imageCount % imagesPerRow === 0 ? 0 : rowSpacing);
+                
+                // Se há imagens, garantir espaço extra
+                if (finalY < 180) {
+                    finalY += 20;
+                } else {
+                    doc.addPage();
+                    finalY = 20;
+                }
+            }
+            
+            // ===== RESUMO E LEGENDA =====
+            // Verificar se há espaço suficiente na página atual
+            if (finalY > 160) { // Se está muito próximo da margem inferior
+                doc.addPage();
+                finalY = 20;
+            }
+            
+            // LEGENDA (lado esquerdo)
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text('LEGENDA:', 20, finalY);
+            
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            
+            // OK com cor verde
+            doc.setFillColor(212, 237, 218);
+            doc.rect(20, finalY + 5, 5, 5, 'F');
+            doc.setTextColor(21, 87, 36);
+            doc.text('OK = Conforme', 28, finalY + 9);
+            
+            // ATENÇÃO com cor amarela
+            doc.setFillColor(255, 243, 205);
+            doc.rect(20, finalY + 12, 5, 5, 'F');
+            doc.setTextColor(133, 100, 4);
+            doc.text('ATENCAO = Requer atencao', 28, finalY + 16);
+            
+            // NÃO OK com cor vermelha
+            doc.setFillColor(248, 215, 218);
+            doc.rect(20, finalY + 19, 5, 5, 'F');
+            doc.setTextColor(114, 28, 36);
+            doc.text('NAO OK = Nao conforme', 28, finalY + 23);
+            
+            // RESUMO (lado direito, posicionado adequadamente)
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('RESUMO:', 170, finalY);
+            
+            const countOk = document.getElementById('countOk').textContent;
+            const countAtencao = document.getElementById('countAtencao').textContent;
+            const countNok = document.getElementById('countNok').textContent;
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            // Contadores do resumo com cores correspondentes
+            doc.setFillColor(212, 237, 218);
+            doc.rect(170, finalY + 5, 5, 5, 'F');
+            doc.setTextColor(21, 87, 36);
+            doc.text(`OK: ${countOk}`, 178, finalY + 9);
+            
+            doc.setFillColor(255, 243, 205);
+            doc.rect(170, finalY + 12, 5, 5, 'F');
+            doc.setTextColor(133, 100, 4);
+            doc.text(`ATENCAO: ${countAtencao}`, 178, finalY + 16);
+            
+            doc.setFillColor(248, 215, 218);
+            doc.rect(170, finalY + 19, 5, 5, 'F');
+            doc.setTextColor(114, 28, 36);
+            doc.text(`NAO OK: ${countNok}`, 178, finalY + 23);
+            
+            // Rodapé (ajustado para nova posição)
+            const footerY = finalY + 35;
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 20, footerY);
+            doc.text('Check List CQ Producao - Office 365 Integration', 148, footerY, { align: 'center' });
+            
+            if (uploadedImages.length > 0) {
+                doc.text(`Evidências: ${uploadedImages.length} imagem(ns)`, 220, footerY);
+            }
+            
+            // Salvar PDF
+            const dataFormatted = data.replace(/-/g, '');
+            const verificadorFormatted = verificador.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+            const fileName = `CheckList_CQ_${dataFormatted}_${verificadorFormatted || 'Verificador'}.pdf`;
+            doc.save(fileName);
+            
+            showToast('PDF gerado com cores, imagens e layout otimizado!', 'success');
+        }
+            
             const headers = [
                 'HORA',
                 'O.P',
