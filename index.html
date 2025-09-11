@@ -948,24 +948,28 @@
                 if (isAfternoon) {
                     // Primeira verificação da tarde deve ser até 13:50
                     const maxAfternoonFirstTime = timeToMinutes('13:50');
+                    const yellowLimit = timeToMinutes('14:20'); // 30min depois
+                    const redLimit = timeToMinutes('14:50'); // 60min depois
                     
                     if (currentMinutes <= maxAfternoonFirstTime) {
                         return 'time-valid'; // Verde - dentro do prazo
-                    } else if (currentMinutes <= maxAfternoonFirstTime + 120) { // até 2h depois
-                        return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                    } else if (currentMinutes <= yellowLimit) {
+                        return 'time-warning'; // Amarelo - até 14:20h
                     } else {
-                        return 'time-danger'; // Vermelho - mais de 2h atrasado
+                        return 'time-danger'; // Vermelho - após 14:50h
                     }
                 } else {
                     // Primeira verificação da manhã deve ser até 08:00
                     const maxFirstTime = timeToMinutes('08:00');
+                    const yellowLimit = timeToMinutes('08:30'); // 30min depois
+                    const redLimit = timeToMinutes('09:00'); // 60min depois
                     
                     if (currentMinutes <= maxFirstTime) {
                         return 'time-valid'; // Verde - dentro do prazo
-                    } else if (currentMinutes <= maxFirstTime + 120) { // até 2h depois
-                        return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                    } else if (currentMinutes <= yellowLimit) {
+                        return 'time-warning'; // Amarelo - até 08:30h
                     } else {
-                        return 'time-danger'; // Vermelho - mais de 2h atrasado
+                        return 'time-danger'; // Vermelho - após 09:00h
                     }
                 }
             }
@@ -973,14 +977,13 @@
             // Se não é a primeira verificação
             const lastVerification = existingVerifications[existingVerifications.length - 1];
             const timeDifference = currentMinutes - lastVerification.minutes;
-            const maxInterval = 65; // 1h05min
             
-            if (timeDifference <= maxInterval) {
-                return 'time-valid'; // Verde - dentro do intervalo
-            } else if (timeDifference <= 120) { // até 2h
-                return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+            if (timeDifference <= 120) { // até 2h
+                return 'time-valid'; // Verde - dentro do intervalo aceitável
+            } else if (timeDifference <= 150) { // até 2h30min
+                return 'time-warning'; // Amarelo - atraso moderado (2h a 2h30min)
             } else {
-                return 'time-danger'; // Vermelho - mais de 2h de intervalo
+                return 'time-danger'; // Vermelho - atraso significativo (mais de 3h)
             }
         }
 
