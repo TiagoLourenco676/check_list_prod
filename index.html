@@ -330,6 +330,12 @@
             justify-content: center;
         }
 
+        .delete-row-btn.disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         .checklist-table tr:hover .delete-row-btn {
             display: flex;
         }
@@ -444,6 +450,45 @@
             border-radius: 5px;
             font-size: 12px;
             transition: all 0.3s ease;
+        }
+
+        /* Novo estilo para campo de justificativa */
+        .justification-field {
+            display: none;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        .justification-field.show {
+            display: block;
+        }
+
+        .justification-input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #f39c12;
+            border-radius: 5px;
+            font-size: 12px;
+            background-color: #fff3cd;
+            color: #856404;
+            placeholder-color: #856404;
+            resize: none;
+            min-height: 60px;
+        }
+
+        .justification-input:focus {
+            border-color: #e67e22;
+            outline: none;
+            box-shadow: 0 0 5px rgba(243, 156, 18, 0.5);
+        }
+
+        .justification-label {
+            font-size: 10px;
+            color: #856404;
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+            text-transform: uppercase;
         }
 
         .actions {
@@ -895,16 +940,33 @@
             const currentMinutes = timeToMinutes(currentTime);
             const existingVerifications = getExistingVerifications();
             
+            // Verificar se é período da tarde (após 13:00)
+            const isAfternoon = currentMinutes >= timeToMinutes('13:00');
+            
             // Se é a primeira verificação
             if (existingVerifications.length === 0) {
-                const maxFirstTime = timeToMinutes('08:00');
-                
-                if (currentMinutes <= maxFirstTime) {
-                    return 'time-valid'; // Verde - dentro do prazo
-                } else if (currentMinutes <= maxFirstTime + 120) { // até 2h depois
-                    return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                if (isAfternoon) {
+                    // Primeira verificação da tarde deve ser até 13:50
+                    const maxAfternoonFirstTime = timeToMinutes('13:50');
+                    
+                    if (currentMinutes <= maxAfternoonFirstTime) {
+                        return 'time-valid'; // Verde - dentro do prazo
+                    } else if (currentMinutes <= maxAfternoonFirstTime + 120) { // até 2h depois
+                        return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                    } else {
+                        return 'time-danger'; // Vermelho - mais de 2h atrasado
+                    }
                 } else {
-                    return 'time-danger'; // Vermelho - mais de 2h atrasado
+                    // Primeira verificação da manhã deve ser até 08:00
+                    const maxFirstTime = timeToMinutes('08:00');
+                    
+                    if (currentMinutes <= maxFirstTime) {
+                        return 'time-valid'; // Verde - dentro do prazo
+                    } else if (currentMinutes <= maxFirstTime + 120) { // até 2h depois
+                        return 'time-warning'; // Amarelo - atrasado mas menos de 2h
+                    } else {
+                        return 'time-danger'; // Vermelho - mais de 2h atrasado
+                    }
                 }
             }
             
@@ -957,7 +1019,23 @@
             const timeValidationClass = validateVerificationTime(currentTime);
             horaCell.classList.add(timeValidationClass);
             
-            horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${verificationCounter})" title="Excluir verificação">×</button>`;
+            // Botão de exclusão (desabilitado se for warning ou danger)
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-row-btn';
+            deleteBtn.innerHTML = '×';
+            deleteBtn.title = 'Excluir verificação';
+            deleteBtn.onclick = () => deleteVerification(verificationCounter);
+            
+            // Desabilitar exclusão se estiver em amarelo ou vermelho
+            if (timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger') {
+                deleteBtn.classList.add('disabled');
+                deleteBtn.title = 'Não é possível excluir verificações em atraso';
+                deleteBtn.onclick = () => {
+                    showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
+                };
+            }
+            
+            horaCell.appendChild(deleteBtn);
             row.appendChild(horaCell);
 
             // Coluna O.P
@@ -980,7 +1058,13 @@
 
             // Coluna de observações
             const obsCell = document.createElement('td');
-            obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações">`;
+            obsCell.innerHTML = `
+                <input type="text" class="obs-input" placeholder="Observações">
+                <div class="justification-field ${timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger' ? 'show' : ''}">
+                    <label class="justification-label">Justificativa obrigatória:</label>
+                    <textarea class="justification-input" placeholder="Justifique o atraso nesta verificação..." rows="3" ${timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger' ? 'required' : ''}></textarea>
+                </div>
+            `;
             row.appendChild(obsCell);
 
             tbody.appendChild(row);
@@ -999,9 +1083,9 @@
             if (timeValidationClass === 'time-valid') {
                 toastMessage += ' ✅ Horário dentro do prazo.';
             } else if (timeValidationClass === 'time-warning') {
-                toastMessage += ' ⚠️ Horário com atraso moderado.';
+                toastMessage += ' ⚠️ Horário com atraso moderado. Justificativa obrigatória.';
             } else if (timeValidationClass === 'time-danger') {
-                toastMessage += ' ❌ Horário com atraso significativo.';
+                toastMessage += ' ❌ Horário com atraso significativo. Justificativa obrigatória.';
             }
             
             showToast(toastMessage, timeValidationClass === 'time-valid' ? 'success' : 'warning');
@@ -1009,19 +1093,26 @@
         }
 
         function deleteVerification(verificationId) {
+            const row = document.querySelector(`tr[data-verification-id="${verificationId}"]`);
+            if (!row) return;
+            
+            // Verificar se a verificação está em amarelo ou vermelho
+            const hourCell = row.querySelector('.hour-cell');
+            if (hourCell && (hourCell.classList.contains('time-warning') || hourCell.classList.contains('time-danger'))) {
+                showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
+                return;
+            }
+            
             if (confirm('Tem certeza que deseja excluir esta verificação?')) {
-                const row = document.querySelector(`tr[data-verification-id="${verificationId}"]`);
-                if (row) {
-                    row.remove();
-                    updateSummary();
-                    
-                    const tbody = document.getElementById('checklistBody');
-                    if (tbody.children.length === 0) {
-                        showEmptyState();
-                    }
-                    
-                    showToast('Verificação excluída!', 'success');
+                row.remove();
+                updateSummary();
+                
+                const tbody = document.getElementById('checklistBody');
+                if (tbody.children.length === 0) {
+                    showEmptyState();
                 }
+                
+                showToast('Verificação excluída!', 'success');
             }
         }
 
@@ -1156,11 +1247,38 @@
             });
         }
 
+        // ===== VALIDAÇÃO DE JUSTIFICATIVAS =====
+        
+        function validateJustifications() {
+            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
+            const missingJustifications = [];
+            
+            rows.forEach((row, index) => {
+                const hourCell = row.querySelector('.hour-cell');
+                if (hourCell && (hourCell.classList.contains('time-warning') || hourCell.classList.contains('time-danger'))) {
+                    const justificationInput = row.querySelector('.justification-input');
+                    if (!justificationInput || justificationInput.value.trim() === '') {
+                        const time = hourCell.textContent.replace('×', '').trim();
+                        missingJustifications.push(`Verificação das ${time}`);
+                    }
+                }
+            });
+            
+            return missingJustifications;
+        }
+
         // ===== INTEGRAÇÃO OFFICE 365 =====
         
         async function saveToOneDrive() {
             if (!graphClient) {
                 showToast('Conecte-se ao Office 365 primeiro!', 'error');
+                return;
+            }
+
+            // Validar justificativas antes de salvar
+            const missingJustifications = validateJustifications();
+            if (missingJustifications.length > 0) {
+                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
                 return;
             }
 
@@ -1235,6 +1353,13 @@
                 return;
             }
 
+            // Validar justificativas antes de enviar
+            const missingJustifications = validateJustifications();
+            if (missingJustifications.length > 0) {
+                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
+                return;
+            }
+
             try {
                 const data = document.getElementById('data').value;
                 const verificador = document.getElementById('verificador').value;
@@ -1306,6 +1431,7 @@
                 if (cells.length > 0) {
                     const opValue = cells[1]?.querySelector('.op-input')?.value || '';
                     const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
+                    const justificationValue = cells[cells.length - 1]?.querySelector('.justification-input')?.value || '';
                     
                     let hasStatus = false;
                     const verificacoes = [];
@@ -1325,16 +1451,22 @@
                         verificacoes.push(status);
                     }
 
-                    const hasData = opValue.trim() !== '' || hasStatus || obsValue.trim() !== '';
+                    const hasData = opValue.trim() !== '' || hasStatus || obsValue.trim() !== '' || justificationValue.trim() !== '';
                     
                     if (hasData) {
+                        const hourCell = cells[0];
+                        const timeValidationClass = hourCell.classList.contains('time-warning') ? 'warning' : 
+                                                  hourCell.classList.contains('time-danger') ? 'danger' : 'valid';
+                        
                         const rowData = {
                             verificationId: row.getAttribute('data-verification-id'),
                             timestamp: row.getAttribute('data-timestamp') || Date.now(),
                             hora: cells[0]?.textContent.replace('×', '').trim() || '',
                             op: opValue,
                             verificacoes: verificacoes,
-                            observacoes: obsValue
+                            observacoes: obsValue,
+                            justificativa: justificationValue,
+                            timeValidation: timeValidationClass
                         };
                         
                         data.checklist.push(rowData);
@@ -1344,12 +1476,19 @@
 
             data.checklist.sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
             data.savedAt = new Date().toISOString();
-            data.version = '2.0';
+            data.version = '2.1';
 
             return data;
         }
 
         function saveData() {
+            // Validar justificativas antes de salvar
+            const missingJustifications = validateJustifications();
+            if (missingJustifications.length > 0) {
+                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
+                return;
+            }
+
             try {
                 const data = prepareDataForSave();
                 localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
@@ -1432,7 +1571,8 @@
                         sortedChecklist.forEach(rowData => {
                             const hasData = rowData.op.trim() !== '' || 
                                            rowData.verificacoes.some(v => v !== null) || 
-                                           rowData.observacoes.trim() !== '';
+                                           rowData.observacoes.trim() !== '' ||
+                                           (rowData.justificativa && rowData.justificativa.trim() !== '');
                             
                             if (hasData) {
                                 const row = document.createElement('tr');
@@ -1446,11 +1586,29 @@
                                 
                                 // Aplicar validação de horário ao carregar
                                 if (rowData.hora.includes(':')) {
-                                    const timeValidationClass = validateVerificationTime(rowData.hora);
+                                    const timeValidationClass = rowData.timeValidation === 'warning' ? 'time-warning' :
+                                                              rowData.timeValidation === 'danger' ? 'time-danger' : 'time-valid';
                                     horaCell.classList.add(timeValidationClass);
+                                    
+                                    // Botão de exclusão
+                                    const deleteBtn = document.createElement('button');
+                                    deleteBtn.className = 'delete-row-btn';
+                                    deleteBtn.innerHTML = '×';
+                                    deleteBtn.title = 'Excluir verificação';
+                                    deleteBtn.onclick = () => deleteVerification(rowData.verificationId);
+                                    
+                                    // Desabilitar exclusão se estiver em amarelo ou vermelho
+                                    if (timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger') {
+                                        deleteBtn.classList.add('disabled');
+                                        deleteBtn.title = 'Não é possível excluir verificações em atraso';
+                                        deleteBtn.onclick = () => {
+                                            showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
+                                        };
+                                    }
+                                    
+                                    horaCell.appendChild(deleteBtn);
                                 }
                                 
-                                horaCell.innerHTML += `<button class="delete-row-btn" onclick="deleteVerification(${rowData.verificationId})" title="Excluir verificação">×</button>`;
                                 row.appendChild(horaCell);
 
                                 // O.P
@@ -1471,9 +1629,19 @@
                                     row.appendChild(cell);
                                 });
 
-                                // Observações
+                                // Observações com justificativa
                                 const obsCell = document.createElement('td');
-                                obsCell.innerHTML = `<input type="text" class="obs-input" placeholder="Observações" value="${rowData.observacoes}">`;
+                                const timeValidationClass = rowData.timeValidation === 'warning' ? 'time-warning' :
+                                                          rowData.timeValidation === 'danger' ? 'time-danger' : 'time-valid';
+                                const showJustification = timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger';
+                                
+                                obsCell.innerHTML = `
+                                    <input type="text" class="obs-input" placeholder="Observações" value="${rowData.observacoes}">
+                                    <div class="justification-field ${showJustification ? 'show' : ''}">
+                                        <label class="justification-label">Justificativa obrigatória:</label>
+                                        <textarea class="justification-input" placeholder="Justifique o atraso nesta verificação..." rows="3" ${showJustification ? 'required' : ''}>${rowData.justificativa || ''}</textarea>
+                                    </div>
+                                `;
                                 row.appendChild(obsCell);
 
                                 tbody.appendChild(row);
@@ -1528,10 +1696,17 @@
         // ===== EXPORT/IMPORT =====
         
         function exportData() {
+            // Validar justificativas antes de exportar
+            const missingJustifications = validateJustifications();
+            if (missingJustifications.length > 0) {
+                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
+                return;
+            }
+
             try {
                 const data = prepareDataForSave();
                 data.exportedAt = new Date().toISOString();
-                data.exportVersion = '2.0';
+                data.exportVersion = '2.1';
                 data.appName = 'Check List CQ Produção - Office 365';
 
                 const blob = new Blob([JSON.stringify(data, null, 2)], { 
@@ -1604,6 +1779,13 @@
         // ===== GERAÇÃO DE PDF COM CORES DE VALIDAÇÃO DE HORÁRIO =====
         
         function generatePDF() {
+            // Validar justificativas antes de gerar PDF
+            const missingJustifications = validateJustifications();
+            if (missingJustifications.length > 0) {
+                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
+                return;
+            }
+
             // Atualizar legendas antes de gerar PDF
             updateImageLegends();
             
@@ -1624,6 +1806,7 @@
             
             const tableData = [];
             const hourValidationData = []; // Array para armazenar informações de validação de horário
+            const justificationData = []; // Array para armazenar justificativas
             const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
             
             rows.forEach((row, rowIndex) => {
@@ -1666,7 +1849,21 @@
                     }
                     
                     const obsInput = cells[cells.length - 1].querySelector('.obs-input');
-                    rowData.push(obsInput ? obsInput.value : '');
+                    const justificationInput = cells[cells.length - 1].querySelector('.justification-input');
+                    
+                    let obsText = obsInput ? obsInput.value : '';
+                    const justificationText = justificationInput ? justificationInput.value : '';
+                    
+                    // Se há justificativa, adicionar aos dados de justificativa
+                    if (justificationText) {
+                        justificationData.push({
+                            hora: hora,
+                            justificativa: justificationText
+                        });
+                        obsText += (obsText ? ' | ' : '') + 'Ver justificativa abaixo';
+                    }
+                    
+                    rowData.push(obsText);
                     
                     tableData.push(rowData);
                 }
@@ -1760,8 +1957,53 @@
             
             let finalY = doc.lastAutoTable.finalY + 15;
             
+            // ===== ADICIONAR JUSTIFICATIVAS SE HOUVER =====
+            if (justificationData.length > 0) {
+                // Verificar se há espaço suficiente na página atual
+                if (finalY > 150) {
+                    doc.addPage();
+                    finalY = 20;
+                }
+                
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text('JUSTIFICATIVAS DE ATRASO', 148, finalY, { align: 'center' });
+                finalY += 15;
+                
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                
+                justificationData.forEach((item, index) => {
+                    // Verificar se precisa de nova página
+                    if (finalY > 180) {
+                        doc.addPage();
+                        finalY = 20;
+                    }
+                    
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(133, 100, 4); // Cor amarela/laranja
+                    doc.text(`${item.hora}:`, 20, finalY);
+                    
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    const justificationLines = doc.splitTextToSize(item.justificativa, 250);
+                    doc.text(justificationLines, 35, finalY);
+                    
+                    finalY += (justificationLines.length * 5) + 8;
+                });
+                
+                finalY += 10;
+            }
+            
             // ===== ADICIONAR IMAGENS AO PDF =====
             if (uploadedImages.length > 0) {
+                // Verificar se há espaço suficiente na página atual
+                if (finalY > 150) {
+                    doc.addPage();
+                    finalY = 20;
+                }
+                
                 // Título da seção de imagens
                 doc.setFontSize(14);
                 doc.setFont(undefined, 'bold');
@@ -1910,13 +2152,17 @@
                 doc.text(`Evidências: ${uploadedImages.length} imagem(ns)`, 220, footerY);
             }
             
+            if (justificationData.length > 0) {
+                doc.text(`Justificativas: ${justificationData.length}`, 270, footerY);
+            }
+            
             // Salvar PDF
             const dataFormatted = data.replace(/-/g, '');
             const verificadorFormatted = verificador.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
             const fileName = `CheckList_CQ_${dataFormatted}_${verificadorFormatted || 'Verificador'}.pdf`;
             doc.save(fileName);
             
-            showToast('PDF gerado com cores, imagens e layout otimizado!', 'success');
+            showToast('PDF gerado com cores, imagens, justificativas e layout otimizado!', 'success');
         }
 
         function clearAll() {
@@ -1970,9 +2216,10 @@
                 if (cells.length > 0) {
                     const opValue = cells[1]?.querySelector('.op-input')?.value || '';
                     const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
+                    const justificationValue = cells[cells.length - 1]?.querySelector('.justification-input')?.value || '';
                     const hasStatus = cells[2]?.querySelector('.status-btn.active') !== null;
                     
-                    if (opValue.trim() !== '' || hasStatus || obsValue.trim() !== '') {
+                    if (opValue.trim() !== '' || hasStatus || obsValue.trim() !== '' || justificationValue.trim() !== '') {
                         hasRealData = true;
                     }
                 }
@@ -1980,7 +2227,9 @@
             
             if (hasRealData) {
                 try {
-                    saveData();
+                    // Não validar justificativas no auto-save, apenas salvar
+                    const data = prepareDataForSave();
+                    localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
                 } catch (error) {
                     console.error('Erro no auto-save:', error);
                 }
