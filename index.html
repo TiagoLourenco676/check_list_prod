@@ -3,719 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check List CQ Produção - Office 365</title>
+    <title>Check List CQ Produção</title>
     
-    <!-- Microsoft Graph SDK -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-graph-client/3.0.7/graph-js-sdk.min.js"></script>
-    <!-- MSAL Browser -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.8.0/msal-browser.min.js"></script>
-    <!-- PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* ===== ESTILOS GERAIS ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        
+        /* Inputs Header */
+        .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .info-group { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; backdrop-filter: blur(10px); }
+        .info-group label { display: block; font-weight: bold; margin-bottom: 8px; color: white; }
+        .info-group input { width: 100%; padding: 10px; border: none; border-radius: 5px; font-size: 16px; background: rgba(255,255,255,0.9); }
 
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+        /* Tabela e Container */
+        .checklist-container { padding: 30px; overflow-x: auto; }
+        .new-verification-section { text-align: center; margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 10px; }
+        .btn-new-verification { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3); }
+        .btn-new-verification:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4); }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+        .checklist-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .checklist-table th { background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%); color: white; padding: 15px 8px; text-align: center; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+        .checklist-table td { padding: 12px 8px; text-align: center; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+        
+        /* Células de Hora */
+        .hour-cell { font-weight: bold; font-size: 16px; background: #ecf0f1; color: #2c3e50; position: relative; }
+        .hour-cell.time-valid { background: #d4edda; color: #155724; border-left: 4px solid #28a745; }
+        .hour-cell.time-warning { background: #fff3cd; color: #856404; border-left: 4px solid #ffc107; }
+        .hour-cell.time-danger { background: #f8d7da; color: #721c24; border-left: 4px solid #dc3545; }
 
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
+        .delete-row-btn { position: absolute; top: 2px; right: 2px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; display: none; align-items: center; justify-content: center; }
+        .checklist-table tr:hover .delete-row-btn { display: flex; }
+        .delete-row-btn.disabled { background: #bdc3c7; cursor: not-allowed; }
 
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
+        .op-input { width: 80px; padding: 8px; border: 2px solid #e9ecef; border-radius: 5px; text-align: center; font-weight: bold; }
 
-        .office365-status {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            backdrop-filter: blur(10px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
+        /* Botões de Status */
+        .status-buttons { display: flex; gap: 5px; justify-content: center; margin-bottom: 5px; }
+        .status-btn { width: 35px; height: 35px; border: none; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .btn-ok { background: #27ae60; color: white; }
+        .btn-atencao { background: #f39c12; color: white; }
+        .btn-nok { background: #e74c3c; color: white; }
+        
+        .status-btn.active { transform: scale(1.15); border: 2px solid #fff; box-shadow: 0 0 8px rgba(0,0,0,0.3); }
+        .btn-ok.active { background: #2ecc71; }
+        .btn-atencao.active { background: #e67e22; }
+        .btn-nok.active { background: #c0392b; }
 
-        .office365-status.connected {
-            background: rgba(39, 174, 96, 0.2);
-            border: 1px solid rgba(39, 174, 96, 0.3);
-        }
-
-        .office365-status.disconnected {
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid rgba(231, 76, 60, 0.3);
-        }
-
-        .header-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 20px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .info-group {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-            backdrop-filter: blur(10px);
-        }
-
-        .info-group label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .info-group input {
+        /* Botões de Edição e Justificativa */
+        .btn-text-edit {
             width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            background: rgba(255,255,255,0.9);
-        }
-
-        .legend {
-            background: #f8f9fa;
-            padding: 20px;
-            border-bottom: 3px solid #e9ecef;
-        }
-
-        .legend h3 {
-            text-align: center;
-            margin-bottom: 15px;
-            color: #2c3e50;
-            font-size: 1.3em;
-        }
-
-        .legend-items {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: bold;
-            padding: 8px 15px;
-            border-radius: 20px;
-            background: white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .legend-ok { border-left: 4px solid #27ae60; }
-        .legend-atencao { border-left: 4px solid #f39c12; }
-        .legend-nok { border-left: 4px solid #e74c3c; }
-
-        .checklist-container {
-            padding: 30px;
-            overflow-x: auto;
-        }
-
-        .new-verification-section {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
-        }
-
-        .btn-new-verification {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-        }
-
-        .btn-new-verification:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-        }
-
-        .image-upload-section {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(255,255,255,0.5);
-            border-radius: 8px;
-            border: 2px dashed #3498db;
-        }
-
-        .image-upload-section input[type="file"] {
-            display: none;
-        }
-
-        .image-upload-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
-        .image-preview {
-            display: flex;
-            gap: 15px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-
-        .image-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            position: relative;
-        }
-
-        .image-container img {
-            max-width: 120px;
-            max-height: 120px;
-            border-radius: 5px;
-            border: 2px solid #ddd;
-            margin-bottom: 8px;
-        }
-
-        .image-legend {
-            width: 120px;
-            padding: 5px;
+            max-width: 150px;
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 12px;
-            text-align: center;
-            resize: none;
-        }
-
-        .image-delete-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 12px;
+            background: #fff;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .image-delete-btn:hover {
-            background: #c0392b;
-        }
-
-        .checklist-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
-            border-radius: 10px;
+            font-size: 11px;
+            text-align: left;
+            white-space: nowrap;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-overflow: ellipsis;
+            color: #555;
+            margin: 2px auto;
+            display: block;
         }
-
-        .checklist-table th {
-            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-            color: white;
-            padding: 15px 8px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            min-width: 120px;
+        .btn-text-edit:hover { background: #f1f8ff; border-color: #3498db; }
+        .btn-text-edit.has-content { background: #e8f5e9; border-color: #27ae60; color: #27ae60; font-weight: bold; }
+        
+        .column-just-btn {
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 10px;
+            border: 1px solid #f39c12;
+            background: #fff3cd;
+            color: #d35400;
+            cursor: pointer;
+            display: none;
+            margin: 0 auto;
         }
+        .column-just-btn:hover { background: #ffe0b2; }
+        .column-just-btn.show { display: inline-block; }
+        .column-just-btn.filled { background: #d35400; color: white; border-color: #d35400; }
 
-        .checklist-table td {
-            padding: 12px 8px;
-            text-align: center;
-            border-bottom: 1px solid #e9ecef;
-            vertical-align: middle;
-        }
-
-        .checklist-table tr:hover {
-            background: #f8f9fa;
-            transition: all 0.2s ease;
-        }
-
-        .hour-cell {
-            font-weight: bold;
-            font-size: 16px;
-            background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
-            color: #2c3e50;
-            position: relative;
-        }
-
-        /* Novos estilos para validação de horários */
-        .hour-cell.time-valid {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
-            border-left: 4px solid #28a745;
-        }
-
-        .hour-cell.time-warning {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            color: #856404;
-            border-left: 4px solid #ffc107;
-        }
-
-        .hour-cell.time-danger {
-            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-            color: #721c24;
-            border-left: 4px solid #dc3545;
-        }
-
-        .delete-row-btn {
-            position: absolute;
-            top: 2px;
-            right: 2px;
+        .time-just-btn {
+            margin-top: 5px;
+            font-size: 10px;
+            padding: 2px 5px;
             background: #e74c3c;
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 12px;
+            border-radius: 3px;
             cursor: pointer;
             display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .delete-row-btn.disabled {
-            background: #bdc3c7;
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        .checklist-table tr:hover .delete-row-btn {
-            display: flex;
-        }
-
-        .op-input {
-            width: 80px;
-            padding: 8px;
-            border: 2px solid #e9ecef;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-
-        .status-buttons {
-            display: flex;
-            gap: 5px;
-            justify-content: center;
-        }
-
-        .status-btn {
-            width: 35px;
-            height: 35px;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .btn-ok { 
-            background: #27ae60; 
-            color: white; 
-        }
-        
-        .btn-ok:hover:not(.active) {
-            background: #2ecc71;
-            transform: scale(1.05);
-        }
-        
-        .btn-atencao { 
-            background: #f39c12; 
-            color: white; 
-        }
-        
-        .btn-atencao:hover:not(.active) {
-            background: #e67e22;
-            transform: scale(1.05);
-        }
-        
-        .btn-nok { 
-            background: #e74c3c; 
-            color: white; 
-        }
-        
-        .btn-nok:hover:not(.active) {
-            background: #c0392b;
-            transform: scale(1.05);
-        }
-
-        .status-btn:hover.active {
-            opacity: 0.8;
-            cursor: pointer;
-        }
-
-        .btn-ok.active {
-            background: #2ecc71;
-            box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5);
-            transform: scale(1.2);
-            animation: pulse-green 2s infinite;
-        }
-
-        .btn-atencao.active {
-            background: #e67e22;
-            box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5);
-            transform: scale(1.2);
-            animation: pulse-yellow 2s infinite;
-        }
-
-        .btn-nok.active {
-            background: #c0392b;
-            box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5);
-            transform: scale(1.2);
-            animation: pulse-red 2s infinite;
-        }
-
-        @keyframes pulse-green {
-            0%, 100% { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.5); }
-            50% { box-shadow: 0 0 0 8px rgba(46, 204, 113, 0.2); }
-        }
-
-        @keyframes pulse-yellow {
-            0%, 100% { box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.5); }
-            50% { box-shadow: 0 0 0 8px rgba(230, 126, 34, 0.2); }
-        }
-
-        @keyframes pulse-red {
-            0%, 100% { box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.5); }
-            50% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0.2); }
-        }
-
-        .obs-input {
-            width: 150px;
-            padding: 8px;
-            border: 2px solid #e9ecef;
-            border-radius: 5px;
-            font-size: 12px;
-            transition: all 0.3s ease;
-        }
-
-        /* Novo estilo para campo de justificativa */
-        .justification-field {
-            display: none;
-            margin-top: 8px;
             width: 100%;
         }
+        .time-just-btn.required { display: block; animation: pulse 2s infinite; }
+        .time-just-btn.filled { background: #27ae60; animation: none; }
 
-        .justification-field.show {
-            display: block;
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-        .justification-input {
-            width: 100%;
-            padding: 8px;
-            border: 2px solid #f39c12;
-            border-radius: 5px;
-            font-size: 12px;
-            background-color: #fff3cd;
-            color: #856404;
-            placeholder-color: #856404;
-            resize: none;
-            min-height: 60px;
-        }
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-title { font-size: 1.2em; margin-bottom: 15px; color: #2c3e50; font-weight: bold; }
+        .modal-textarea { width: 100%; height: 150px; padding: 10px; border: 2px solid #e9ecef; border-radius: 8px; resize: vertical; margin-bottom: 20px; font-family: inherit; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
 
-        .justification-input:focus {
-            border-color: #e67e22;
-            outline: none;
-            box-shadow: 0 0 5px rgba(243, 156, 18, 0.5);
-        }
+        /* Actions Footer */
+        .actions { padding: 30px; background: #f8f9fa; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+        .action-buttons { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        .action-btn { padding: 12px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; font-size: 14px; }
+        .btn-save { background: #27ae60; }
+        .btn-pdf { background: #8e44ad; }
+        .btn-clear { background: #e74c3c; }
+        .btn-export { background: #17a2b8; }
+        .btn-import { background: #ffc107; }
+        
+        /* Toast */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 15px 20px; background: #27ae60; color: white; border-radius: 5px; transform: translateX(200%); transition: transform 0.3s; z-index: 3000; }
+        .toast.show { transform: translateX(0); }
+        
+        /* Summary */
+        .summary-stats { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
+        .stat-item { padding: 10px 20px; background: white; border-radius: 8px; text-align: center; font-weight: bold; }
+        
+        /* Dashboard CSS */
+        .dashboard-container { margin-top: 30px; padding: 25px; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-top: 5px solid #3498db; display: none; }
+        .dashboard-container h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; font-size: 1.5em; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        .dashboard-card { padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; background: #fcfcfc; }
+        .dashboard-card h3 { margin-bottom: 15px; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; font-size: 1.1em; }
+        .problems-card h3 { color: #e74c3c; border-bottom-color: #fadbd8; }
+        .obs-card h3 { color: #3498db; border-bottom-color: #d6eaf8; }
+        .dash-list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+        .dash-list li { background: white; margin-bottom: 10px; padding: 12px; border-radius: 6px; border-left: 4px solid #ddd; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .dash-list li.item-nok { border-left-color: #e74c3c; }
+        .dash-list li.item-atencao { border-left-color: #f39c12; }
+        .dash-list li.item-obs { border-left-color: #3498db; }
+        .dash-time { font-weight: bold; color: #2c3e50; margin-right: 5px; }
+        .dash-category { font-weight: bold; color: #7f8c8d; display: block; font-size: 11px; margin-bottom: 5px; text-transform: uppercase; }
 
-        .justification-label {
-            font-size: 10px;
-            color: #856404;
-            font-weight: bold;
-            margin-bottom: 5px;
-            display: block;
-            text-transform: uppercase;
-        }
-
-        .actions {
-            padding: 30px;
-            background: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            align-items: center;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .action-btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-office365 {
-            background: linear-gradient(135deg, #0078d4 0%, #106ebe 100%);
-            color: white;
-        }
-
-        .btn-save {
-            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-            color: white;
-        }
-
-        .btn-export {
-            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-            color: white;
-        }
-
-        .btn-import {
-            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
-            color: white;
-        }
-
-        .btn-pdf {
-            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-            color: white;
-        }
-
-        .btn-print {
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            color: white;
-        }
-
-        .btn-clear {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            color: white;
-        }
-
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .save-status {
-            text-align: center;
-            padding: 12px 20px;
-            background: rgba(255,255,255,0.7);
-            border-radius: 8px;
-            font-size: 14px;
-            color: #6c757d;
-            min-width: 250px;
-            font-weight: 500;
-        }
-
-        .save-status.saved {
-            color: #27ae60;
-            background: rgba(39, 174, 96, 0.1);
-            border: 1px solid rgba(39, 174, 96, 0.2);
-        }
-
-        .save-status.error {
-            color: #e74c3c;
-            background: rgba(231, 76, 60, 0.1);
-            border: 1px solid rgba(231, 76, 60, 0.2);
-        }
-
-        .summary {
-            margin-top: 30px;
-            padding: 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .summary-stats {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            min-width: 120px;
-        }
-
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .stat-ok .stat-number { color: #27ae60; }
-        .stat-atencao .stat-number { color: #f39c12; }
-        .stat-nok .stat-number { color: #e74c3c; }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-            font-style: italic;
-        }
+        /* Image Upload Styles */
+        .image-upload-section { margin-top: 15px; border: 2px dashed #3498db; padding: 15px; border-radius: 8px; background: rgba(255,255,255,0.5); }
+        .image-preview { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; justify-content: center; }
+        .image-container { position: relative; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; width: 140px; }
+        .image-container img { width: 120px; height: 120px; border-radius: 3px; object-fit: cover; margin-bottom: 8px; border: 1px solid #eee; }
+        .image-legend-input { width: 100%; font-size: 12px; border: 1px solid #ccc; padding: 6px; border-radius: 4px; resize: vertical; height: 50px; font-family: inherit; background-color: #fafafa; color: #333; }
+        .image-legend-input:focus { border-color: #3498db; outline: none; background-color: #fff; box-shadow: 0 0 5px rgba(52, 152, 219, 0.3); }
+        .image-delete-btn { position: absolute; top: -8px; right: -8px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .image-delete-btn:hover { background: #c0392b; transform: scale(1.1); }
+        .image-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .image-btn:hover { background: #2980b9; transform: translateY(-2px); }
 
         .file-input { display: none; }
-
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            background: #27ae60;
-            color: white;
-            border-radius: 5px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        @media (max-width: 768px) {
-            .header-info {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-                align-items: center;
-                width: 100%;
-            }
-            
-            .action-btn {
-                width: 100%;
-                max-width: 300px;
-            }
-        }
     </style>
 </head>
 <body>
+
+    <div class="modal-overlay" id="universalModal">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modalTitle">Editar Texto</h3>
+            <textarea class="modal-textarea" id="modalTextarea"></textarea>
+            <div class="modal-buttons">
+                <button class="action-btn" style="background: #95a5a6;" onclick="closeModal()">Cancelar</button>
+                <button class="action-btn" style="background: #27ae60;" onclick="saveModal()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>CHECK LIST CQ PRODUÇÃO</h1>
-            <div class="office365-status" id="officeStatus">
-                <span id="officeStatusIcon">🔌</span>
-                <span id="officeStatusText">Conectando ao Office 365...</span>
-                <button class="btn-office365" id="connectBtn" onclick="connectToOffice365()" style="display: none;">
-                    Conectar Office 365
-                </button>
-            </div>
             <div class="header-info">
                 <div class="info-group">
-                    <label for="data">Data:</label>
-                    <input type="date" id="data" name="data">
+                    <label>Data:</label>
+                    <input type="date" id="data">
                 </div>
                 <div class="info-group">
-                    <label for="verificador">Verificador:</label>
-                    <input type="text" id="verificador" name="verificador" placeholder="Nome do verificador">
-                </div>
-            </div>
-        </div>
-
-        <div class="legend">
-            <h3>Legenda de Avaliação</h3>
-            <div class="legend-items">
-                <div class="legend-item legend-ok">
-                    <span class="status-btn btn-ok">✓</span>
-                    <span>OK</span>
-                </div>
-                <div class="legend-item legend-atencao">
-                    <span class="status-btn btn-atencao">⚠</span>
-                    <span>ATENÇÃO</span>
-                </div>
-                <div class="legend-item legend-nok">
-                    <span class="status-btn btn-nok">✗</span>
-                    <span>NÃO OK</span>
+                    <label>Verificador:</label>
+                    <input type="text" id="verificador" placeholder="Nome do Verificador">
                 </div>
             </div>
         </div>
 
         <div class="checklist-container">
             <div class="new-verification-section">
-                <button class="btn-new-verification" onclick="addNewVerification()">
-                    ➕ Nova Verificação
-                </button>
-                <p style="margin-top: 10px; color: #6c757d; font-size: 14px;">
-                    💡 Dica: Clique nos botões coloridos para marcar status. Clique novamente para desmarcar.
-                </p>
+                <button class="btn-new-verification" onclick="addNewVerification()">➕ Nova Verificação</button>
                 <div class="image-upload-section">
-                    <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">
-                        📷 Adicionar Fotos
-                    </button>
-                    <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)">
-                    <span style="font-size: 12px; color: #666;">Evidências, não conformidades, etc.</span>
-                    <div class="image-preview" id="imagePreview"></div>
+                    <button class="image-btn" onclick="document.getElementById('imageUpload').click()">📷 Adicionar Fotos</button>
+                    <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)" style="display:none">
+                    <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
 
@@ -724,58 +209,45 @@
                     <tr>
                         <th>HORA</th>
                         <th>O.P</th>
-                        <th>COMPARAÇÃO MATERIAIS O.P E B.O.M UTILIZADOS</th>
-                        <th>PROCESSOS/INSTRUÇÃO DE TRABALHO</th>
-                        <th>MATRIZ DE COMPETÊNCIA</th>
+                        <th>MATERIAIS</th>
+                        <th>PROCESSOS</th>
+                        <th>MATRIZ</th>
                         <th>ETIQUETAS</th>
-                        <th>OBSERVAÇÕES</th>
+                        <th>OBSERVAÇÕES GERAIS</th>
                     </tr>
                 </thead>
-                <tbody id="checklistBody">
-                    <tr class="empty-state">
-                        <td colspan="7">
-                            <div class="empty-state-icon">📝</div>
-                            <div>Nenhuma verificação adicionada</div>
-                            <div>Clique em "Nova Verificação" para começar</div>
-                        </td>
-                    </tr>
-                </tbody>
+                <tbody id="checklistBody"></tbody>
             </table>
 
-            <div class="summary" id="summary">
-                <h3>Resumo da Verificação</h3>
-                <div class="summary-stats">
-                    <div class="stat-item stat-ok">
-                        <div class="stat-number" id="countOk">0</div>
-                        <div>OK</div>
+            <div class="summary-stats">
+                <div class="stat-item" style="color: #27ae60;">OK: <span id="countOk">0</span></div>
+                <div class="stat-item" style="color: #f39c12;">ATENÇÃO: <span id="countAtencao">0</span></div>
+                <div class="stat-item" style="color: #e74c3c;">NÃO OK: <span id="countNok">0</span></div>
+            </div>
+
+            <div class="dashboard-container" id="dashboardContainer">
+                <h2>📊 Dashboard de Ocorrências</h2>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card problems-card">
+                        <h3>⚠️ Problemas Encontrados</h3>
+                        <ul id="dashProblemsList" class="dash-list"></ul>
                     </div>
-                    <div class="stat-item stat-atencao">
-                        <div class="stat-number" id="countAtencao">0</div>
-                        <div>ATENÇÃO</div>
-                    </div>
-                    <div class="stat-item stat-nok">
-                        <div class="stat-number" id="countNok">0</div>
-                        <div>NÃO OK</div>
+                    <div class="dashboard-card obs-card">
+                        <h3>📝 Observações Gerais</h3>
+                        <ul id="dashObsList" class="dash-list"></ul>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="actions">
-            <div class="save-status" id="saveStatus">
-                💾 Sistema pronto para salvar
-            </div>
-            
             <div class="action-buttons">
-                <button class="action-btn btn-save" onclick="saveToOneDrive()">☁️ Salvar OneDrive</button>
                 <button class="action-btn btn-save" onclick="saveData()">💾 Salvar Local</button>
                 <button class="action-btn btn-export" onclick="exportData()">📥 Exportar</button>
                 <button class="action-btn btn-import" onclick="document.getElementById('importFile').click()">📤 Importar</button>
                 <button class="action-btn btn-pdf" onclick="generatePDF()">📄 PDF</button>
-                <button class="action-btn btn-office365" onclick="sendReportByEmail()">📧 Enviar Relatório</button>
                 <button class="action-btn btn-clear" onclick="clearAll()">🗑️ Limpar</button>
             </div>
-            
             <input type="file" id="importFile" class="file-input" accept=".json" onchange="importData(event)">
         </div>
     </div>
@@ -783,1461 +255,537 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // ===== CONFIGURAÇÃO MICROSOFT GRAPH =====
-        
-        // IMPORTANTE: Configure estes valores no Azure AD
-        const msalConfig = {
-            auth: {
-                clientId: 'SEU_CLIENT_ID_AQUI', // Substitua pelo Client ID do Azure AD
-                authority: 'https://login.microsoftonline.com/SEU_TENANT_ID_AQUI', // Substitua pelo Tenant ID
-                redirectUri: window.location.origin // URL atual
-            },
-            cache: {
-                cacheLocation: 'localStorage',
-                storeAuthStateInCookie: false
-            }
-        };
-
-        // Permissões necessárias
-        const graphScopes = {
-            scopes: [
-                'User.Read',
-                'Files.ReadWrite',
-                'Sites.ReadWrite.All',
-                'Mail.Send'
-            ]
-        };
-
-        let msalInstance;
-        let graphClient;
-        let currentUser = null;
-        
-        // Variáveis do sistema
         let verificationCounter = 0;
         let uploadedImages = [];
-        const colunas = ['materiais', 'processos', 'competencia', 'etiquetas'];
+        let currentEditingInput = null;
+        let currentEditingButton = null;
 
-        // ===== INICIALIZAÇÃO =====
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeMSAL();
-            document.getElementById('data').value = new Date().toISOString().split('T')[0];
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('data').valueAsDate = new Date();
             loadData();
         });
 
-        async function initializeMSAL() {
-            try {
-                // Verificar se as configurações estão definidas
-                if (msalConfig.auth.clientId === 'SEU_CLIENT_ID_AQUI') {
-                    updateOfficeStatus('disconnected', '⚠️', 'Configuração necessária', true);
-                    return;
-                }
+        // --- MODAL ---
+        function openModal(inputElement, buttonElement, title) {
+            currentEditingInput = inputElement;
+            currentEditingButton = buttonElement;
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalTextarea').value = inputElement.value;
+            document.getElementById('universalModal').style.display = 'flex';
+            document.getElementById('modalTextarea').focus();
+        }
 
-                msalInstance = new msal.PublicClientApplication(msalConfig);
-                await msalInstance.initialize();
+        function closeModal() {
+            document.getElementById('universalModal').style.display = 'none';
+            currentEditingInput = null;
+            currentEditingButton = null;
+        }
+
+        function saveModal() {
+            if (currentEditingInput) {
+                const text = document.getElementById('modalTextarea').value;
+                currentEditingInput.value = text;
                 
-                // Verificar se há conta logada
-                const accounts = msalInstance.getAllAccounts();
-                if (accounts.length > 0) {
-                    currentUser = accounts[0];
-                    await initializeGraphClient();
-                    updateOfficeStatus('connected', '✅', `Conectado: ${currentUser.name}`, false);
-                    document.getElementById('verificador').value = currentUser.name;
-                } else {
-                    updateOfficeStatus('disconnected', '🔌', 'Clique para conectar', true);
-                }
-            } catch (error) {
-                console.error('Erro ao inicializar MSAL:', error);
-                updateOfficeStatus('disconnected', '❌', 'Erro de configuração', true);
-            }
-        }
-
-        async function connectToOffice365() {
-            try {
-                updateOfficeStatus('connecting', '⏳', 'Conectando...', false);
-                
-                const response = await msalInstance.loginPopup(graphScopes);
-                currentUser = response.account;
-                
-                await initializeGraphClient();
-                updateOfficeStatus('connected', '✅', `Conectado: ${currentUser.name}`, false);
-                document.getElementById('verificador').value = currentUser.name;
-                
-                showToast('Conectado ao Office 365 com sucesso!', 'success');
-                
-            } catch (error) {
-                console.error('Erro na autenticação:', error);
-                updateOfficeStatus('disconnected', '❌', 'Erro na conexão', true);
-                showToast('Erro ao conectar com Office 365', 'error');
-            }
-        }
-
-        async function initializeGraphClient() {
-            class MSALAuthProvider {
-                async getAccessToken() {
-                    try {
-                        const response = await msalInstance.acquireTokenSilent({
-                            ...graphScopes,
-                            account: currentUser
-                        });
-                        return response.accessToken;
-                    } catch (error) {
-                        // Se silent falhar, tenta interativo
-                        const response = await msalInstance.acquireTokenPopup(graphScopes);
-                        return response.accessToken;
-                    }
-                }
-            }
-
-            const authProvider = new MSALAuthProvider();
-            graphClient = MicrosoftGraph.Client.initWithMiddleware({ authProvider });
-        }
-
-        function updateOfficeStatus(status, icon, text, showButton) {
-            const statusEl = document.getElementById('officeStatus');
-            const iconEl = document.getElementById('officeStatusIcon');
-            const textEl = document.getElementById('officeStatusText');
-            const btnEl = document.getElementById('connectBtn');
-            
-            iconEl.textContent = icon;
-            textEl.textContent = text;
-            btnEl.style.display = showButton ? 'inline-block' : 'none';
-            
-            statusEl.className = `office365-status ${status}`;
-        }
-
-        // ===== FUNÇÕES DE VALIDAÇÃO DE HORÁRIO =====
-        
-        // Converter hora (HH:MM) para minutos
-        function timeToMinutes(timeStr) {
-            const parts = timeStr.split(':');
-            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-        }
-
-        // Obter todas as verificações existentes ordenadas por hora
-        function getExistingVerifications() {
-            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
-            const verifications = [];
-            
-            rows.forEach(row => {
-                const hourCell = row.querySelector('.hour-cell');
-                if (hourCell) {
-                    const timeText = hourCell.textContent.replace('×', '').trim();
-                    if (timeText.includes(':')) {
-                        verifications.push({
-                            time: timeText,
-                            minutes: timeToMinutes(timeText)
-                        });
-                    }
-                }
-            });
-            
-            return verifications.sort((a, b) => a.minutes - b.minutes);
-        }
-
-        // Validar horário da nova verificação
-        function validateVerificationTime(currentTime) {
-            const currentMinutes = timeToMinutes(currentTime);
-            const existingVerifications = getExistingVerifications();
-            
-            // Verificar se é período da tarde (após 13:00)
-            const isAfternoon = currentMinutes >= timeToMinutes('13:00');
-            
-            // Se é a primeira verificação
-            if (existingVerifications.length === 0) {
-                if (isAfternoon) {
-                    // Primeira verificação da tarde deve ser até 13:50
-                    const maxAfternoonFirstTime = timeToMinutes('13:50');
-                    const yellowLimit = timeToMinutes('14:20'); // 30min depois
-                    const redLimit = timeToMinutes('14:50'); // 60min depois
-                    
-                    if (currentMinutes <= maxAfternoonFirstTime) {
-                        return 'time-valid'; // Verde - dentro do prazo
-                    } else if (currentMinutes <= yellowLimit) {
-                        return 'time-warning'; // Amarelo - até 14:20h
+                if (currentEditingButton) {
+                    if (text.trim() !== "") {
+                        currentEditingButton.classList.add('filled', 'has-content');
+                        if (currentEditingButton.classList.contains('btn-text-edit')) {
+                            currentEditingButton.textContent = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+                        } else if (currentEditingButton.classList.contains('time-just-btn')) {
+                            currentEditingButton.textContent = 'Justificado';
+                        }
                     } else {
-                        return 'time-danger'; // Vermelho - após 14:50h
-                    }
-                } else {
-                    // Primeira verificação da manhã deve ser até 08:00
-                    const maxFirstTime = timeToMinutes('08:00');
-                    const yellowLimit = timeToMinutes('08:30'); // 30min depois
-                    const redLimit = timeToMinutes('09:00'); // 60min depois
-                    
-                    if (currentMinutes <= maxFirstTime) {
-                        return 'time-valid'; // Verde - dentro do prazo
-                    } else if (currentMinutes <= yellowLimit) {
-                        return 'time-warning'; // Amarelo - até 08:30h
-                    } else {
-                        return 'time-danger'; // Vermelho - após 09:00h
+                        currentEditingButton.classList.remove('filled', 'has-content');
+                        if (currentEditingButton.classList.contains('btn-text-edit')) {
+                            currentEditingButton.textContent = 'Adicionar Obs';
+                        } else if (currentEditingButton.classList.contains('time-just-btn')) {
+                            currentEditingButton.textContent = 'Justificar Atraso';
+                        }
                     }
                 }
             }
-            
-            // Se não é a primeira verificação
-            const lastVerification = existingVerifications[existingVerifications.length - 1];
-            const timeDifference = currentMinutes - lastVerification.minutes;
-            
-            if (timeDifference <= 120) { // até 2h
-                return 'time-valid'; // Verde - dentro do intervalo aceitável
-            } else if (timeDifference <= 150) { // até 2h30min
-                return 'time-warning'; // Amarelo - atraso moderado (2h a 2h30min)
-            } else {
-                return 'time-danger'; // Vermelho - atraso significativo (mais de 3h)
-            }
+            closeModal();
+            updateSummary();
         }
 
-        // ===== FUNCIONALIDADES CORE =====
+        // --- LÓGICA DE TEMPO ---
+        function timeToMinutes(timeStr) { const parts = timeStr.split(':'); return parseInt(parts[0])*60 + parseInt(parts[1]); }
         
-        function getCurrentTime() {
-            const now = new Date();
-            return now.toLocaleTimeString('pt-BR', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: false 
-            });
+        function validateTime(currentTime, previousTime) {
+            const curMin = timeToMinutes(currentTime);
+            const morningLimit = timeToMinutes('08:15');
+            const afternoonStartLimit = timeToMinutes('14:00');
+            const noon = timeToMinutes('12:00');
+            const intervalMax = 60; // 1 HORA
+
+            if (!previousTime) {
+                if (curMin < noon) return curMin <= morningLimit ? 'time-valid' : 'time-danger';
+                else return curMin <= afternoonStartLimit ? 'time-valid' : 'time-danger';
+            }
+
+            const prevMin = timeToMinutes(previousTime);
+            if (prevMin < noon && curMin >= noon) {
+                return curMin <= afternoonStartLimit ? 'time-valid' : 'time-danger';
+            }
+
+            const diff = curMin - prevMin;
+            if (diff > intervalMax) return 'time-danger';
+
+            return 'time-valid';
         }
 
+        function isPreviousRowComplete() {
+            const rows = document.querySelectorAll('#checklistBody tr');
+            if (rows.length === 0) return true;
+
+            const lastRow = rows[rows.length - 1];
+
+            const timeBtn = lastRow.querySelector('.time-just-btn');
+            const timeInput = lastRow.querySelector('.time-just-input');
+            if (timeBtn && timeBtn.classList.contains('required') && !timeInput.value.trim()) {
+                 alert("Ação Bloqueada: A verificação anterior tem um atraso não justificado.");
+                 timeBtn.style.border = "2px solid red";
+                 return false;
+            }
+
+            const colJustBtns = lastRow.querySelectorAll('.column-just-btn');
+            for (let btn of colJustBtns) {
+                if (btn.classList.contains('show')) {
+                    const input = btn.nextElementSibling;
+                    if (!input.value.trim()) {
+                        alert("Ação Bloqueada: A verificação anterior possui itens (Atenção/Não OK) não justificados.");
+                        btn.style.border = "2px solid red";
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // --- TABELA E LINHAS ---
         function addNewVerification() {
-            const tbody = document.getElementById('checklistBody');
-            
-            const emptyState = tbody.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.remove();
-            }
+            if (!isPreviousRowComplete()) return;
 
             verificationCounter++;
-            const currentTime = getCurrentTime();
+            const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+            const tbody = document.getElementById('checklistBody');
             
-            const row = document.createElement('tr');
-            row.setAttribute('data-verification-id', verificationCounter);
-            row.setAttribute('data-timestamp', Date.now());
-            
-            // Coluna de hora com validação
-            const horaCell = document.createElement('td');
-            horaCell.className = 'hour-cell';
-            horaCell.textContent = currentTime;
-            
-            // Aplicar validação de horário
-            const timeValidationClass = validateVerificationTime(currentTime);
-            horaCell.classList.add(timeValidationClass);
-            
-            // Botão de exclusão (desabilitado se for warning ou danger)
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-row-btn';
-            deleteBtn.innerHTML = '×';
-            deleteBtn.title = 'Excluir verificação';
-            deleteBtn.onclick = () => deleteVerification(verificationCounter);
-            
-            // Desabilitar exclusão se estiver em amarelo ou vermelho
-            if (timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger') {
-                deleteBtn.classList.add('disabled');
-                deleteBtn.title = 'Não é possível excluir verificações em atraso';
-                deleteBtn.onclick = () => {
-                    showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
-                };
+            const rows = tbody.querySelectorAll('tr');
+            let prevTime = null;
+            if (rows.length > 0) {
+                const lastRow = rows[rows.length - 1];
+                prevTime = lastRow.cells[0].innerText.split('\n')[0].trim();
             }
+
+            const row = document.createElement('tr');
+            row.id = `row-${verificationCounter}`;
+            row.setAttribute('data-verification-id', verificationCounter);
             
-            horaCell.appendChild(deleteBtn);
-            row.appendChild(horaCell);
+            const timeClass = validateTime(now, prevTime);
+            const isLate = timeClass !== 'time-valid';
 
-            // Coluna O.P
-            const opCell = document.createElement('td');
-            opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P">`;
-            row.appendChild(opCell);
+            const tdHora = document.createElement('td');
+            tdHora.className = `hour-cell ${timeClass}`;
+            tdHora.innerHTML = `
+                ${now}
+                <button class="delete-row-btn ${isLate ? 'disabled' : ''}" onclick="${isLate ? "alert('Bloqueado: Justifique o atraso antes.')" : "this.closest('tr').remove(); updateSummary();"}">×</button>
+                <button class="time-just-btn ${isLate ? 'required' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">Justificar Atraso</button>
+                <input type="hidden" class="time-just-input">
+            `;
+            row.appendChild(tdHora);
 
-            // Colunas de verificação
-            colunas.forEach(coluna => {
-                const cell = document.createElement('td');
-                cell.innerHTML = `
+            const tdOp = document.createElement('td');
+            tdOp.innerHTML = `<input type="text" class="op-input" placeholder="O.P">`;
+            row.appendChild(tdOp);
+
+            const titulos = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
+            titulos.forEach(titulo => {
+                const td = document.createElement('td');
+                td.innerHTML = `
                     <div class="status-buttons">
-                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')" title="OK - Clique para marcar/desmarcar">✓</button>
-                        <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao')" title="Atenção - Clique para marcar/desmarcar">⚠</button>
-                        <button class="status-btn btn-nok" onclick="setStatus(this, 'nok')" title="Não OK - Clique para marcar/desmarcar">✗</button>
+                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')">✓</button>
+                        <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao', '${titulo}')">⚠</button>
+                        <button class="status-btn btn-nok" onclick="setStatus(this, 'nok', '${titulo}')">✗</button>
                     </div>
+                    <button class="column-just-btn" onclick="openModal(this.nextElementSibling, this, 'Justificativa: ${titulo}')">📝 Justificar</button>
+                    <input type="hidden" class="col-just-input">
                 `;
-                row.appendChild(cell);
+                row.appendChild(td);
             });
 
-            // Coluna de observações
-            const obsCell = document.createElement('td');
-            obsCell.innerHTML = `
-                <input type="text" class="obs-input" placeholder="Observações">
-                <div class="justification-field ${timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger' ? 'show' : ''}">
-                    <label class="justification-label">Justificativa obrigatória:</label>
-                    <textarea class="justification-input" placeholder="Justifique o atraso nesta verificação..." rows="3" ${timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger' ? 'required' : ''}></textarea>
-                </div>
+            const tdObs = document.createElement('td');
+            tdObs.innerHTML = `
+                <button class="btn-text-edit" onclick="openModal(this.nextElementSibling, this, 'Observações Gerais')">Adicionar Obs</button>
+                <input type="hidden" class="obs-general-input">
             `;
-            row.appendChild(obsCell);
+            row.appendChild(tdObs);
 
             tbody.appendChild(row);
-            
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
-            setTimeout(() => {
-                const opInput = row.querySelector('.op-input');
-                if (opInput) {
-                    opInput.focus();
-                }
-            }, 300);
-
-            // Mostrar toast com informação sobre a validação
-            let toastMessage = 'Nova verificação adicionada!';
-            if (timeValidationClass === 'time-valid') {
-                toastMessage += ' ✅ Horário dentro do prazo.';
-            } else if (timeValidationClass === 'time-warning') {
-                toastMessage += ' ⚠️ Horário com atraso moderado. Justificativa obrigatória.';
-            } else if (timeValidationClass === 'time-danger') {
-                toastMessage += ' ❌ Horário com atraso significativo. Justificativa obrigatória.';
-            }
-            
-            showToast(toastMessage, timeValidationClass === 'time-valid' ? 'success' : 'warning');
             updateSummary();
         }
 
-        function deleteVerification(verificationId) {
-            const row = document.querySelector(`tr[data-verification-id="${verificationId}"]`);
-            if (!row) return;
-            
-            // Verificar se a verificação está em amarelo ou vermelho
-            const hourCell = row.querySelector('.hour-cell');
-            if (hourCell && (hourCell.classList.contains('time-warning') || hourCell.classList.contains('time-danger'))) {
-                showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
-                return;
-            }
-            
-            if (confirm('Tem certeza que deseja excluir esta verificação?')) {
-                row.remove();
-                updateSummary();
-                
-                const tbody = document.getElementById('checklistBody');
-                if (tbody.children.length === 0) {
-                    showEmptyState();
+        function setStatus(btn, status, contextTitle) {
+            const container = btn.parentElement;
+            container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const td = container.parentElement;
+            const justBtn = td.querySelector('.column-just-btn');
+            const justInput = td.querySelector('.col-just-input');
+
+            if (status === 'atencao' || status === 'nok') {
+                justBtn.classList.add('show');
+                if (justInput.value.trim() === '') {
+                    openModal(justInput, justBtn, `Justificativa Obrigatória: ${contextTitle}`);
                 }
-                
-                showToast('Verificação excluída!', 'success');
-            }
-        }
-
-        function showEmptyState() {
-            const tbody = document.getElementById('checklistBody');
-            tbody.innerHTML = `
-                <tr class="empty-state">
-                    <td colspan="7">
-                        <div class="empty-state-icon">📝</div>
-                        <div>Nenhuma verificação adicionada</div>
-                        <div>Clique em "Nova Verificação" para começar</div>
-                    </td>
-                </tr>
-            `;
-        }
-
-        function setStatus(button, status) {
-            const buttons = button.parentElement.querySelectorAll('.status-btn');
-            
-            // Se o botão já está ativo, remover a seleção
-            if (button.classList.contains('active')) {
-                button.classList.remove('active');
             } else {
-                // Remover active de todos os botões
-                buttons.forEach(btn => btn.classList.remove('active'));
-                // Adicionar active ao botão clicado
-                button.classList.add('active');
+                justBtn.classList.remove('show');
             }
-            
             updateSummary();
         }
 
+        // --- DASHBOARD ---
         function updateSummary() {
-            const activeButtons = document.querySelectorAll('.status-btn.active');
-            let countOk = 0, countAtencao = 0, countNok = 0;
+            document.getElementById('countOk').innerText = document.querySelectorAll('.btn-ok.active').length;
+            document.getElementById('countAtencao').innerText = document.querySelectorAll('.btn-atencao.active').length;
+            document.getElementById('countNok').innerText = document.querySelectorAll('.btn-nok.active').length;
+            updateDashboard();
+        }
 
-            activeButtons.forEach(btn => {
-                if (btn.classList.contains('btn-ok')) countOk++;
-                else if (btn.classList.contains('btn-atencao')) countAtencao++;
-                else if (btn.classList.contains('btn-nok')) countNok++;
+        function updateDashboard() {
+            const rows = document.querySelectorAll('#checklistBody tr');
+            const problemsList = document.getElementById('dashProblemsList');
+            const obsList = document.getElementById('dashObsList');
+            
+            problemsList.innerHTML = '';
+            obsList.innerHTML = '';
+            
+            let hasProblems = false;
+            let hasObs = false;
+
+            if(rows.length === 0) {
+                document.getElementById('dashboardContainer').style.display = 'none';
+                return;
+            } else {
+                document.getElementById('dashboardContainer').style.display = 'block';
+            }
+
+            rows.forEach(row => {
+                const timeStr = row.cells[0].innerText.split('\n')[0].trim();
+                const opStr = row.querySelector('.op-input').value || 'S/ OP';
+
+                const timeJust = row.querySelector('.time-just-input').value;
+                if (row.cells[0].classList.contains('time-danger')) {
+                    hasProblems = true;
+                    const li = document.createElement('li');
+                    li.className = 'item-nok';
+                    li.innerHTML = `<span class="dash-category">HORÁRIO - ATRASO</span><span class="dash-time">${timeStr} (OP: ${opStr}):</span> ${timeJust || '<i>Pendente justificar</i>'}`;
+                    problemsList.appendChild(li);
+                }
+
+                const headers = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
+                for (let i = 2; i <= 5; i++) {
+                    const td = row.cells[i];
+                    const activeBtn = td.querySelector('.status-btn.active');
+                    if (activeBtn && (activeBtn.classList.contains('btn-atencao') || activeBtn.classList.contains('btn-nok'))) {
+                        hasProblems = true;
+                        const statusType = activeBtn.classList.contains('btn-nok') ? 'NÃO OK' : 'ATENÇÃO';
+                        const cssClass = activeBtn.classList.contains('btn-nok') ? 'item-nok' : 'item-atencao';
+                        const justText = td.querySelector('.col-just-input').value || '<i>Pendente justificar</i>';
+                        
+                        const li = document.createElement('li');
+                        li.className = cssClass;
+                        li.innerHTML = `<span class="dash-category">${headers[i-2]} - ${statusType}</span><span class="dash-time">${timeStr} (OP: ${opStr}):</span> ${justText}`;
+                        problemsList.appendChild(li);
+                    }
+                }
+
+                const obsText = row.querySelector('.obs-general-input').value;
+                if (obsText && obsText.trim() !== '') {
+                    hasObs = true;
+                    const li = document.createElement('li');
+                    li.className = 'item-obs';
+                    li.innerHTML = `<span class="dash-time">${timeStr} (OP: ${opStr}):</span> ${obsText}`;
+                    obsList.appendChild(li);
+                }
             });
 
-            document.getElementById('countOk').textContent = countOk;
-            document.getElementById('countAtencao').textContent = countAtencao;
-            document.getElementById('countNok').textContent = countNok;
+            if (!hasProblems) problemsList.innerHTML = '<li style="border-left-color: #27ae60; text-align: center; color: #27ae60; font-weight: bold;">Nenhuma não conformidade encontrada. ✅</li>';
+            if (!hasObs) obsList.innerHTML = '<li style="text-align: center; color: #7f8c8d;">Nenhuma observação registrada.</li>';
         }
 
-        // ===== UPLOAD DE IMAGENS =====
-        
+        document.addEventListener('input', function(e) {
+            if(e.target && e.target.classList.contains('op-input')){ updateSummary(); }
+        });
+
+        // --- SINCRONIZAÇÃO DE FOTOS ---
+        function syncImageLegends() {
+            document.querySelectorAll('.image-container').forEach(container => {
+                const id = parseInt(container.getAttribute('data-id'));
+                const textarea = container.querySelector('.image-legend-input');
+                const imgObj = uploadedImages.find(i => i.id === id);
+                if (imgObj && textarea) imgObj.name = textarea.value;
+            });
+        }
+
+        function validateAll() {
+            const rows = document.querySelectorAll('#checklistBody tr');
+            let errors = [];
+
+            rows.forEach((row, index) => {
+                const timeStr = row.cells[0].innerText.split('\n')[0].trim();
+                const timeBtn = row.querySelector('.time-just-btn');
+                const timeInput = row.querySelector('.time-just-input');
+                
+                if (timeBtn.classList.contains('required') && timeInput.value.trim() === '') {
+                    errors.push(`Horário ${timeStr}: Falta justificativa de atraso`);
+                    timeBtn.style.border = "2px solid red"; 
+                }
+
+                for (let i = 2; i <= 5; i++) {
+                    const td = row.cells[i];
+                    const activeBtn = td.querySelector('.status-btn.active');
+                    if (activeBtn && (activeBtn.classList.contains('btn-atencao') || activeBtn.classList.contains('btn-nok'))) {
+                        const justInput = td.querySelector('.col-just-input');
+                        if (justInput.value.trim() === '') {
+                            const headerName = document.querySelectorAll('th')[i].innerText;
+                            errors.push(`Horário ${timeStr} (${headerName}): Falta justificativa`);
+                            td.querySelector('.column-just-btn').style.border = "2px solid red";
+                        }
+                    }
+                }
+            });
+
+            if (errors.length > 0) {
+                alert("Erros de Validação:\n\n" + errors.join("\n"));
+                return false;
+            }
+            return true;
+        }
+
+        // --- PDF (COM DASHBOARD) ---
+        function generatePDF() {
+            if (!validateAll()) return;
+            syncImageLegends(); 
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4');
+
+            doc.setFontSize(18); doc.text('RELATÓRIO DE INSPEÇÃO - CONTROLE DE QUALIDADE', 148, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Data: ${document.getElementById('data').value}`, 15, 25);
+            doc.text(`Verificador: ${document.getElementById('verificador').value}`, 15, 30);
+
+            const tableBody = [];
+            const rows = document.querySelectorAll('#checklistBody tr');
+
+            // Arrays para o Dashboard no PDF
+            const dashProblems = [];
+            const dashObs = [];
+
+            rows.forEach(row => {
+                const rowData = [];
+                const timeStr = row.cells[0].innerText.split('\n')[0].trim();
+                const opStr = row.querySelector('.op-input').value || 'S/ OP';
+                const timeJust = row.querySelector('.time-just-input').value;
+                
+                let horaTxt = timeStr;
+                if (timeJust) horaTxt += `\n(Atraso: ${timeJust})`;
+                rowData.push(horaTxt);
+                rowData.push(opStr);
+
+                // Dashboard Extract Atraso
+                if (row.cells[0].classList.contains('time-danger')) {
+                    dashProblems.push(`[HORÁRIO - ATRASO] ${timeStr} (OP: ${opStr}): ${timeJust || 'Pendente justificar'}`);
+                }
+
+                const headers = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
+                for (let i = 2; i <= 5; i++) {
+                    const td = row.cells[i];
+                    const activeBtn = td.querySelector('.status-btn.active');
+                    let statusTxt = "-";
+                    
+                    if (activeBtn) {
+                        if (activeBtn.classList.contains('btn-ok')) statusTxt = "OK";
+                        if (activeBtn.classList.contains('btn-atencao')) statusTxt = "ATENÇÃO";
+                        if (activeBtn.classList.contains('btn-nok')) statusTxt = "NÃO OK";
+                        
+                        // Dashboard Extract Problemas
+                        if (activeBtn.classList.contains('btn-atencao') || activeBtn.classList.contains('btn-nok')) {
+                            const justText = td.querySelector('.col-just-input').value || 'Pendente justificar';
+                            dashProblems.push(`[${headers[i-2]} - ${statusTxt}] ${timeStr} (OP: ${opStr}): ${justText}`);
+                        }
+                    }
+                    const just = td.querySelector('.col-just-input').value;
+                    if (just) statusTxt += `\nJust: ${just}`;
+                    rowData.push(statusTxt);
+                }
+                
+                const obsText = row.querySelector('.obs-general-input').value;
+                rowData.push(obsText);
+                tableBody.push(rowData);
+
+                // Dashboard Extract Obs
+                if (obsText && obsText.trim() !== '') {
+                    dashObs.push(`${timeStr} (OP: ${opStr}): ${obsText}`);
+                }
+            });
+
+            // Gerar Tabela Principal
+            doc.autoTable({
+                head: [['HORA', 'O.P', 'MATERIAIS', 'PROCESSOS', 'MATRIZ', 'ETIQUETAS', 'OBSERVAÇÕES']],
+                body: tableBody,
+                startY: 35,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2, valign: 'middle', halign: 'center', overflow: 'linebreak' },
+                headStyles: { fillColor: [44, 62, 80], textColor: 255 },
+                columnStyles: { 0: { cellWidth: 25 }, 6: { cellWidth: 40, halign: 'left' } },
+                didParseCell: function(data) {
+                    const text = (Array.isArray(data.cell.text) ? data.cell.text.join('\n') : data.cell.text) || "";
+                    if (text.includes("OK") && !text.includes("NÃO")) { data.cell.styles.fillColor = [212, 237, 218]; data.cell.styles.textColor = [21, 87, 36]; }
+                    if (text.includes("ATENÇÃO")) { data.cell.styles.fillColor = [255, 243, 205]; data.cell.styles.textColor = [133, 100, 4]; }
+                    if (text.includes("NÃO OK")) { data.cell.styles.fillColor = [248, 215, 218]; data.cell.styles.textColor = [114, 28, 36]; }
+                    if (data.column.index === 0 && data.section === 'body') {
+                        if (text.includes("(Atraso:")) { data.cell.styles.textColor = [220, 53, 69]; data.cell.styles.fontStyle = 'bold'; }
+                    }
+                }
+            });
+
+            let finalY = doc.lastAutoTable.finalY + 15;
+
+            // --- IMPRESSÃO DO DASHBOARD NO PDF ---
+            if (finalY > 170) { doc.addPage(); finalY = 20; }
+            
+            doc.setFontSize(14);
+            doc.setTextColor(44, 62, 80);
+            doc.setFont(undefined, 'bold');
+            doc.text("DASHBOARD DE OCORRÊNCIAS", 148, finalY, { align: 'center' });
+            finalY += 10;
+
+            // Problemas
+            doc.setFontSize(11);
+            doc.setTextColor(231, 76, 60); // Vermelho
+            doc.text("Problemas Encontrados:", 15, finalY);
+            finalY += 7;
+            
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            if (dashProblems.length === 0) {
+                doc.text("Nenhuma não conformidade ou atraso registrado.", 20, finalY);
+                finalY += 7;
+            } else {
+                dashProblems.forEach(prob => {
+                    const lines = doc.splitTextToSize(`• ${prob}`, 260);
+                    if (finalY + (lines.length * 5) > 190) { doc.addPage(); finalY = 20; }
+                    doc.text(lines, 20, finalY);
+                    finalY += (lines.length * 5) + 2;
+                });
+            }
+            
+            finalY += 5;
+
+            // Observações
+            doc.setFontSize(11);
+            doc.setTextColor(52, 152, 219); // Azul
+            doc.setFont(undefined, 'bold');
+            doc.text("Observações Gerais:", 15, finalY);
+            finalY += 7;
+
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont(undefined, 'normal');
+            if (dashObs.length === 0) {
+                doc.text("Nenhuma observação registrada.", 20, finalY);
+                finalY += 7;
+            } else {
+                dashObs.forEach(obs => {
+                    const lines = doc.splitTextToSize(`• ${obs}`, 260);
+                    if (finalY + (lines.length * 5) > 190) { doc.addPage(); finalY = 20; }
+                    doc.text(lines, 20, finalY);
+                    finalY += (lines.length * 5) + 2;
+                });
+            }
+
+            finalY += 15;
+
+            // --- IMPRESSÃO DAS FOTOS ---
+            if (uploadedImages.length > 0) {
+                if(finalY > 150) { doc.addPage(); finalY = 20; }
+                doc.setFontSize(14); doc.setTextColor(44, 62, 80); doc.setFont(undefined, 'bold');
+                doc.text("EVIDÊNCIAS FOTOGRÁFICAS", 148, finalY, { align: 'center' }); finalY += 10;
+                
+                let x = 20; let y = finalY; let count = 0;
+                uploadedImages.forEach(img => {
+                    try {
+                        doc.addImage(img.data, 'JPEG', x, y, 50, 40);
+                        doc.setFontSize(8); doc.setTextColor(0,0,0); doc.setFont(undefined, 'normal');
+                        const splitLegend = doc.splitTextToSize(img.name || "", 50);
+                        doc.text(splitLegend, x, y + 45);
+                        
+                        x += 60; count++;
+                        if(count % 4 === 0) { x = 20; y += 60; if(y > 150) { doc.addPage(); y = 20; } }
+                    } catch(e) {}
+                });
+            }
+            doc.save(`Relatorio_CQ_${Date.now()}.pdf`);
+            showToast("PDF Gerado!");
+        }
+
+        // --- UPLOAD IMAGENS ---
         function handleImageUpload(event) {
             const files = Array.from(event.target.files);
             const preview = document.getElementById('imagePreview');
-            
-            files.forEach((file, index) => {
+            files.forEach(file => {
                 if (file.type.startsWith('image/')) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        const imageId = Date.now() + index;
+                        const imgId = Date.now() + Math.floor(Math.random() * 1000);
+                        const imgData = { id: imgId, name: file.name, data: e.target.result };
+                        uploadedImages.push(imgData);
                         
-                        // Criar container da imagem
-                        const container = document.createElement('div');
-                        container.className = 'image-container';
-                        container.setAttribute('data-image-id', imageId);
-                        
-                        // Criar imagem
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.title = file.name;
-                        
-                        // Criar campo de legenda
-                        const legend = document.createElement('textarea');
-                        legend.className = 'image-legend';
-                        legend.placeholder = 'Adicionar legenda...';
-                        legend.rows = 2;
-                        
-                        // Criar botão de exclusão
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.className = 'image-delete-btn';
-                        deleteBtn.innerHTML = '×';
-                        deleteBtn.title = 'Excluir imagem';
-                        deleteBtn.onclick = () => deleteImage(imageId);
-                        
-                        // Montar container
-                        container.appendChild(deleteBtn);
-                        container.appendChild(img);
-                        container.appendChild(legend);
-                        preview.appendChild(container);
-                        
-                        // Adicionar aos dados
-                        uploadedImages.push({
-                            id: imageId,
-                            name: file.name,
-                            data: e.target.result,
-                            file: file,
-                            legend: ''
-                        });
-                    };
-                    reader.readAsDataURL(file);
+                        const div = document.createElement('div'); 
+                        div.className = 'image-container'; 
+                        div.setAttribute('data-id', imgId);
+                        div.innerHTML = `
+                            <button class="image-delete-btn" onclick="deleteImage(${imgId})">×</button>
+                            <img src="${imgData.data}">
+                            <textarea class="image-legend-input" placeholder="Digite a legenda...">${file.name}</textarea>
+                        `;
+                        preview.appendChild(div);
+                    }; reader.readAsDataURL(file);
                 }
             });
-            
-            showToast(`${files.length} imagem(ns) adicionada(s)!`, 'success');
-            
-            // Limpar input para permitir selecionar as mesmas imagens novamente
-            event.target.value = '';
+            event.target.value = ''; 
         }
 
-        function deleteImage(imageId) {
-            // Remover do array
-            uploadedImages = uploadedImages.filter(img => img.id !== imageId);
-            
-            // Remover do DOM
-            const container = document.querySelector(`[data-image-id="${imageId}"]`);
-            if (container) {
-                container.remove();
-            }
-            
-            showToast('Imagem removida!', 'success');
+        function deleteImage(id) { 
+            uploadedImages = uploadedImages.filter(img => img.id !== id); 
+            const el = document.querySelector(`.image-container[data-id="${id}"]`); 
+            if(el) el.remove(); 
         }
 
-        function updateImageLegends() {
-            // Atualizar legendas no array baseado nos campos de texto
-            const containers = document.querySelectorAll('.image-container');
-            containers.forEach(container => {
-                const imageId = parseInt(container.getAttribute('data-image-id'));
-                const legend = container.querySelector('.image-legend').value;
-                
-                const imageData = uploadedImages.find(img => img.id === imageId);
-                if (imageData) {
-                    imageData.legend = legend;
+        // --- STORAGE ---
+        function saveData() { 
+            syncImageLegends(); 
+            const data = { date: document.getElementById('data').value, verificador: document.getElementById('verificador').value, rows: [], images: uploadedImages };
+            document.querySelectorAll('#checklistBody tr').forEach(row => {
+                const rowData = { hora: row.cells[0].innerText.split('\n')[0].trim(), timeJust: row.querySelector('.time-just-input').value, op: row.querySelector('.op-input').value, cols: [], obs: row.querySelector('.obs-general-input').value };
+                for(let i=2; i<=5; i++) {
+                    const active = row.cells[i].querySelector('.status-btn.active');
+                    rowData.cols.push({ status: active ? (active.classList.contains('btn-ok') ? 'ok' : active.classList.contains('btn-atencao') ? 'atencao' : 'nok') : null, just: row.cells[i].querySelector('.col-just-input').value });
                 }
+                data.rows.push(rowData);
             });
+            localStorage.setItem('checklist_data', JSON.stringify(data)); showToast("Salvo localmente!"); 
         }
-
-        // ===== VALIDAÇÃO DE JUSTIFICATIVAS =====
-        
-        function validateJustifications() {
-            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
-            const missingJustifications = [];
-            
-            rows.forEach((row, index) => {
-                const hourCell = row.querySelector('.hour-cell');
-                if (hourCell && (hourCell.classList.contains('time-warning') || hourCell.classList.contains('time-danger'))) {
-                    const justificationInput = row.querySelector('.justification-input');
-                    if (!justificationInput || justificationInput.value.trim() === '') {
-                        const time = hourCell.textContent.replace('×', '').trim();
-                        missingJustifications.push(`Verificação das ${time}`);
-                    }
-                }
-            });
-            
-            return missingJustifications;
-        }
-
-        // ===== INTEGRAÇÃO OFFICE 365 =====
-        
-        async function saveToOneDrive() {
-            if (!graphClient) {
-                showToast('Conecte-se ao Office 365 primeiro!', 'error');
-                return;
-            }
-
-            // Validar justificativas antes de salvar
-            const missingJustifications = validateJustifications();
-            if (missingJustifications.length > 0) {
-                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
-                return;
-            }
-
-            try {
-                updateSaveStatus('loading');
-                
-                // Preparar dados
-                const data = prepareDataForSave();
-                data.savedToOneDrive = true;
-                data.oneDrivePath = '/CheckList_CQ';
-                
-                // Nome do arquivo
-                const dateStr = data.data.replace(/-/g, '');
-                const verificador = data.verificador.replace(/[^a-zA-Z0-9]/g, '_');
-                const fileName = `CheckList_CQ_${dateStr}_${verificador}.json`;
-                
-                // Salvar JSON no OneDrive
-                const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { 
-                    type: 'application/json' 
-                });
-                
-                await graphClient
-                    .api(`/me/drive/root:/CheckList_CQ/${fileName}:/content`)
-                    .put(jsonBlob);
-                
-                // Upload das imagens se houver
-                if (uploadedImages.length > 0) {
-                    await uploadImagesToOneDrive(dateStr, verificador);
-                }
-                
-                updateSaveStatus('saved');
-                showToast('Dados salvos no OneDrive com sucesso!', 'success');
-                
-            } catch (error) {
-                console.error('Erro ao salvar no OneDrive:', error);
-                updateSaveStatus('error');
-                showToast('Erro ao salvar no OneDrive!', 'error');
-            }
-        }
-
-        async function uploadImagesToOneDrive(dateStr, verificador) {
-            const folderPath = `/CheckList_CQ/Imagens_${dateStr}_${verificador}`;
-            
-            // Criar pasta se não existir
-            try {
-                await graphClient
-                    .api(`/me/drive/root:${folderPath}`)
-                    .get();
-            } catch {
-                await graphClient
-                    .api('/me/drive/root/children')
-                    .post({
-                        name: `Imagens_${dateStr}_${verificador}`,
-                        folder: {}
-                    });
-            }
-            
-            // Upload de cada imagem
-            for (const image of uploadedImages) {
-                const response = await fetch(image.data);
-                const blob = await response.blob();
-                
-                await graphClient
-                    .api(`/me/drive/root:${folderPath}/${image.name}:/content`)
-                    .put(blob);
-            }
-        }
-
-        async function sendReportByEmail() {
-            if (!graphClient) {
-                showToast('Conecte-se ao Office 365 primeiro!', 'error');
-                return;
-            }
-
-            // Validar justificativas antes de enviar
-            const missingJustifications = validateJustifications();
-            if (missingJustifications.length > 0) {
-                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
-                return;
-            }
-
-            try {
-                const data = document.getElementById('data').value;
-                const verificador = document.getElementById('verificador').value;
-                const countOk = document.getElementById('countOk').textContent;
-                const countAtencao = document.getElementById('countAtencao').textContent;
-                const countNok = document.getElementById('countNok').textContent;
-                
-                const emailBody = `
-                    <h2>Relatório Check List CQ Produção</h2>
-                    <p><strong>Data:</strong> ${data}</p>
-                    <p><strong>Verificador:</strong> ${verificador}</p>
-                    
-                    <h3>Resumo:</h3>
-                    <ul>
-                        <li style="color: #27ae60;"><strong>OK:</strong> ${countOk}</li>
-                        <li style="color: #f39c12;"><strong>Atenção:</strong> ${countAtencao}</li>
-                        <li style="color: #e74c3c;"><strong>Não OK:</strong> ${countNok}</li>
-                    </ul>
-                    
-                    <p>Relatório gerado automaticamente pelo sistema Check List CQ.</p>
-                `;
-
-                const mail = {
-                    subject: `Check List CQ - ${data} - ${verificador}`,
-                    body: {
-                        contentType: 'html',
-                        content: emailBody
-                    },
-                    toRecipients: [
-                        {
-                            emailAddress: {
-                                address: 'supervisor@empresa.com' // Configure o email do supervisor
-                            }
-                        }
-                    ]
-                };
-
-                await graphClient.api('/me/sendMail').post({ message: mail });
-                showToast('Relatório enviado por email!', 'success');
-                
-            } catch (error) {
-                console.error('Erro ao enviar email:', error);
-                showToast('Erro ao enviar email!', 'error');
-            }
-        }
-
-        // ===== SISTEMA DE SALVAMENTO =====
-        
-        function prepareDataForSave() {
-            // Atualizar legendas antes de salvar
-            updateImageLegends();
-            
-            const data = {
-                data: document.getElementById('data').value,
-                verificador: document.getElementById('verificador').value,
-                verificationCounter: verificationCounter,
-                images: uploadedImages.map(img => ({ 
-                    id: img.id,
-                    name: img.name, 
-                    data: img.data,
-                    legend: img.legend || ''
-                })),
-                checklist: []
-            };
-
-            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length > 0) {
-                    const opValue = cells[1]?.querySelector('.op-input')?.value || '';
-                    const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
-                    const justificationValue = cells[cells.length - 1]?.querySelector('.justification-input')?.value || '';
-                    
-                    let hasStatus = false;
-                    const verificacoes = [];
-                    for (let i = 2; i < cells.length - 1; i++) {
-                        const activeBtn = cells[i]?.querySelector('.status-btn.active');
-                        let status = null;
-                        if (activeBtn?.classList.contains('btn-ok')) {
-                            status = 'ok';
-                            hasStatus = true;
-                        } else if (activeBtn?.classList.contains('btn-atencao')) {
-                            status = 'atencao';
-                            hasStatus = true;
-                        } else if (activeBtn?.classList.contains('btn-nok')) {
-                            status = 'nok';
-                            hasStatus = true;
-                        }
-                        verificacoes.push(status);
-                    }
-
-                    const hasData = opValue.trim() !== '' || hasStatus || obsValue.trim() !== '' || justificationValue.trim() !== '';
-                    
-                    if (hasData) {
-                        const hourCell = cells[0];
-                        const timeValidationClass = hourCell.classList.contains('time-warning') ? 'warning' : 
-                                                  hourCell.classList.contains('time-danger') ? 'danger' : 'valid';
-                        
-                        const rowData = {
-                            verificationId: row.getAttribute('data-verification-id'),
-                            timestamp: row.getAttribute('data-timestamp') || Date.now(),
-                            hora: cells[0]?.textContent.replace('×', '').trim() || '',
-                            op: opValue,
-                            verificacoes: verificacoes,
-                            observacoes: obsValue,
-                            justificativa: justificationValue,
-                            timeValidation: timeValidationClass
-                        };
-                        
-                        data.checklist.push(rowData);
-                    }
-                }
-            });
-
-            data.checklist.sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
-            data.savedAt = new Date().toISOString();
-            data.version = '2.1';
-
-            return data;
-        }
-
-        function saveData() {
-            // Validar justificativas antes de salvar
-            const missingJustifications = validateJustifications();
-            if (missingJustifications.length > 0) {
-                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
-                return;
-            }
-
-            try {
-                const data = prepareDataForSave();
-                localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
-                updateSaveStatus('saved');
-                showToast('Dados salvos localmente!', 'success');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                updateSaveStatus('error');
-                showToast('Erro ao salvar dados!', 'error');
-            }
-        }
-
-        function loadData() {
-            try {
-                updateSaveStatus('loading');
-                
-                const saved = localStorage.getItem('checklist_cq_producao');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    document.getElementById('data').value = data.data || '';
-                    document.getElementById('verificador').value = data.verificador || '';
-                    verificationCounter = data.verificationCounter || 0;
-                    
-                    // Carregar imagens
-                    if (data.images) {
-                        uploadedImages = data.images.map(img => ({
-                            id: img.id || Date.now() + Math.random(),
-                            name: img.name,
-                            data: img.data,
-                            legend: img.legend || ''
-                        }));
-                        
-                        const preview = document.getElementById('imagePreview');
-                        preview.innerHTML = '';
-                        
-                        uploadedImages.forEach(image => {
-                            // Criar container da imagem
-                            const container = document.createElement('div');
-                            container.className = 'image-container';
-                            container.setAttribute('data-image-id', image.id);
-                            
-                            // Criar imagem
-                            const img = document.createElement('img');
-                            img.src = image.data;
-                            img.title = image.name;
-                            
-                            // Criar campo de legenda
-                            const legend = document.createElement('textarea');
-                            legend.className = 'image-legend';
-                            legend.placeholder = 'Adicionar legenda...';
-                            legend.rows = 2;
-                            legend.value = image.legend || '';
-                            
-                            // Criar botão de exclusão
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.className = 'image-delete-btn';
-                            deleteBtn.innerHTML = '×';
-                            deleteBtn.title = 'Excluir imagem';
-                            deleteBtn.onclick = () => deleteImage(image.id);
-                            
-                            // Montar container
-                            container.appendChild(deleteBtn);
-                            container.appendChild(img);
-                            container.appendChild(legend);
-                            preview.appendChild(container);
-                        });
-                    }
-                    
-                    // Carregar checklist
-                    if (data.checklist && data.checklist.length > 0) {
-                        const tbody = document.getElementById('checklistBody');
-                        tbody.innerHTML = '';
-                        
-                        const sortedChecklist = data.checklist.sort((a, b) => {
-                            const timestampA = parseInt(a.timestamp) || 0;
-                            const timestampB = parseInt(b.timestamp) || 0;
-                            return timestampA - timestampB;
-                        });
-                        
-                        sortedChecklist.forEach(rowData => {
-                            const hasData = rowData.op.trim() !== '' || 
-                                           rowData.verificacoes.some(v => v !== null) || 
-                                           rowData.observacoes.trim() !== '' ||
-                                           (rowData.justificativa && rowData.justificativa.trim() !== '');
-                            
-                            if (hasData) {
-                                const row = document.createElement('tr');
-                                row.setAttribute('data-verification-id', rowData.verificationId || Date.now());
-                                row.setAttribute('data-timestamp', rowData.timestamp || Date.now());
-                                
-                                // Hora com validação
-                                const horaCell = document.createElement('td');
-                                horaCell.className = 'hour-cell';
-                                horaCell.textContent = rowData.hora;
-                                
-                                // Aplicar validação de horário ao carregar
-                                if (rowData.hora.includes(':')) {
-                                    const timeValidationClass = rowData.timeValidation === 'warning' ? 'time-warning' :
-                                                              rowData.timeValidation === 'danger' ? 'time-danger' : 'time-valid';
-                                    horaCell.classList.add(timeValidationClass);
-                                    
-                                    // Botão de exclusão
-                                    const deleteBtn = document.createElement('button');
-                                    deleteBtn.className = 'delete-row-btn';
-                                    deleteBtn.innerHTML = '×';
-                                    deleteBtn.title = 'Excluir verificação';
-                                    deleteBtn.onclick = () => deleteVerification(rowData.verificationId);
-                                    
-                                    // Desabilitar exclusão se estiver em amarelo ou vermelho
-                                    if (timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger') {
-                                        deleteBtn.classList.add('disabled');
-                                        deleteBtn.title = 'Não é possível excluir verificações em atraso';
-                                        deleteBtn.onclick = () => {
-                                            showToast('Não é possível excluir verificações em atraso (amarelo/vermelho)', 'error');
-                                        };
-                                    }
-                                    
-                                    horaCell.appendChild(deleteBtn);
-                                }
-                                
-                                row.appendChild(horaCell);
-
-                                // O.P
-                                const opCell = document.createElement('td');
-                                opCell.innerHTML = `<input type="text" class="op-input" placeholder="O.P" value="${rowData.op}">`;
-                                row.appendChild(opCell);
-
-                                // Verificações
-                                rowData.verificacoes.forEach((status, index) => {
-                                    const cell = document.createElement('td');
-                                    cell.innerHTML = `
-                                        <div class="status-buttons">
-                                            <button class="status-btn btn-ok ${status === 'ok' ? 'active' : ''}" onclick="setStatus(this, 'ok')" title="OK - Clique para marcar/desmarcar">✓</button>
-                                            <button class="status-btn btn-atencao ${status === 'atencao' ? 'active' : ''}" onclick="setStatus(this, 'atencao')" title="Atenção - Clique para marcar/desmarcar">⚠</button>
-                                            <button class="status-btn btn-nok ${status === 'nok' ? 'active' : ''}" onclick="setStatus(this, 'nok')" title="Não OK - Clique para marcar/desmarcar">✗</button>
-                                        </div>
-                                    `;
-                                    row.appendChild(cell);
-                                });
-
-                                // Observações com justificativa
-                                const obsCell = document.createElement('td');
-                                const timeValidationClass = rowData.timeValidation === 'warning' ? 'time-warning' :
-                                                          rowData.timeValidation === 'danger' ? 'time-danger' : 'time-valid';
-                                const showJustification = timeValidationClass === 'time-warning' || timeValidationClass === 'time-danger';
-                                
-                                obsCell.innerHTML = `
-                                    <input type="text" class="obs-input" placeholder="Observações" value="${rowData.observacoes}">
-                                    <div class="justification-field ${showJustification ? 'show' : ''}">
-                                        <label class="justification-label">Justificativa obrigatória:</label>
-                                        <textarea class="justification-input" placeholder="Justifique o atraso nesta verificação..." rows="3" ${showJustification ? 'required' : ''}>${rowData.justificativa || ''}</textarea>
-                                    </div>
-                                `;
-                                row.appendChild(obsCell);
-
-                                tbody.appendChild(row);
-                            }
-                        });
-                    }
-                    
-                    updateSummary();
-                    
-                    if (data.savedAt) {
-                        const lastSaved = new Date(data.savedAt).toLocaleString('pt-BR');
-                        updateSaveStatus('saved');
-                        document.getElementById('saveStatus').textContent = `✅ Último salvamento: ${lastSaved}`;
-                    } else {
-                        updateSaveStatus('saved');
-                    }
-                    
-                } else {
-                    updateSaveStatus();
-                }
-                
-            } catch (error) {
-                console.error('Erro ao carregar:', error);
-                updateSaveStatus('error');
-                showToast('Erro ao carregar dados!', 'error');
-            }
-        }
-
-        function updateSaveStatus(status) {
-            const saveStatusEl = document.getElementById('saveStatus');
-            const now = new Date().toLocaleString('pt-BR');
-            
-            switch (status) {
-                case 'saved':
-                    saveStatusEl.textContent = `✅ Salvo em: ${now}`;
-                    saveStatusEl.className = 'save-status saved';
-                    break;
-                case 'error':
-                    saveStatusEl.textContent = `❌ Erro ao salvar em: ${now}`;
-                    saveStatusEl.className = 'save-status error';
-                    break;
-                case 'loading':
-                    saveStatusEl.textContent = `⏳ Processando...`;
-                    saveStatusEl.className = 'save-status';
-                    break;
-                default:
-                    saveStatusEl.textContent = `💾 Sistema pronto para salvar`;
-                    saveStatusEl.className = 'save-status';
-            }
-        }
-
-        // ===== EXPORT/IMPORT =====
-        
-        function exportData() {
-            // Validar justificativas antes de exportar
-            const missingJustifications = validateJustifications();
-            if (missingJustifications.length > 0) {
-                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
-                return;
-            }
-
-            try {
-                const data = prepareDataForSave();
-                data.exportedAt = new Date().toISOString();
-                data.exportVersion = '2.1';
-                data.appName = 'Check List CQ Produção - Office 365';
-
-                const blob = new Blob([JSON.stringify(data, null, 2)], { 
-                    type: 'application/json' 
-                });
-                
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                
-                const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-                const verificador = data.verificador ? data.verificador.replace(/[^a-zA-Z0-9]/g, '_') : 'Usuario';
-                const fileName = `CheckList_CQ_${dateStr}_${verificador}.json`;
-                
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                showToast('Dados exportados com sucesso!', 'success');
-                
-            } catch (error) {
-                console.error('Erro ao exportar:', error);
-                showToast('Erro ao exportar dados!', 'error');
-            }
-        }
-
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            if (!file.name.endsWith('.json')) {
-                showToast('Por favor, selecione um arquivo JSON!', 'error');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    if (!importedData.checklist || !Array.isArray(importedData.checklist)) {
-                        showToast('Arquivo JSON inválido!', 'error');
-                        return;
-                    }
-                    
-                    const message = `Importar dados do arquivo?\n\n` +
-                                  `📅 Data: ${importedData.data || 'Não informada'}\n` +
-                                  `👤 Verificador: ${importedData.verificador || 'Não informado'}\n` +
-                                  `📊 Verificações: ${importedData.checklist.length}\n` +
-                                  `📷 Imagens: ${importedData.images ? importedData.images.length : 0}\n\n` +
-                                  `⚠️ Isso substituirá todos os dados atuais!`;
-                    
-                    if (confirm(message)) {
-                        localStorage.setItem('checklist_cq_producao', JSON.stringify(importedData));
-                        location.reload();
-                    }
-                    
-                } catch (error) {
-                    console.error('Erro ao importar:', error);
-                    showToast('Erro ao ler arquivo JSON!', 'error');
-                }
-            };
-            
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-
-        // ===== GERAÇÃO DE PDF COM CORES DE VALIDAÇÃO DE HORÁRIO =====
-        
-        function generatePDF() {
-            // Validar justificativas antes de gerar PDF
-            const missingJustifications = validateJustifications();
-            if (missingJustifications.length > 0) {
-                showToast(`Justificativas pendentes: ${missingJustifications.join(', ')}`, 'error');
-                return;
-            }
-
-            // Atualizar legendas antes de gerar PDF
-            updateImageLegends();
-            
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('l', 'mm', 'a4');
-            
-            const data = document.getElementById('data').value;
-            const verificador = document.getElementById('verificador').value;
-            
-            doc.setFontSize(18);
-            doc.setFont(undefined, 'bold');
-            doc.text('CHECK LIST CQ PRODUCAO - OFFICE 365', 148, 20, { align: 'center' });
-            
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'normal');
-            doc.text(`Data: ${data || '_____/_____/_____'}`, 20, 35);
-            doc.text(`Verificador: ${verificador || '________________________'}`, 150, 35);
-            
-            const tableData = [];
-            const hourValidationData = []; // Array para armazenar informações de validação de horário
-            const justificationData = []; // Array para armazenar justificativas
-            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
-            
-            rows.forEach((row, rowIndex) => {
-                const cells = row.querySelectorAll('td');
-                
-                if (cells.length > 0) {
-                    const rowData = [];
-                    
-                    const hora = cells[0].textContent.replace('×', '').trim();
-                    rowData.push(hora);
-                    
-                    // Capturar informação de validação de horário
-                    const hourCell = cells[0];
-                    let hourValidation = 'default';
-                    if (hourCell.classList.contains('time-valid')) {
-                        hourValidation = 'valid';
-                    } else if (hourCell.classList.contains('time-warning')) {
-                        hourValidation = 'warning';
-                    } else if (hourCell.classList.contains('time-danger')) {
-                        hourValidation = 'danger';
-                    }
-                    hourValidationData.push(hourValidation);
-                    
-                    const opInput = cells[1].querySelector('.op-input');
-                    rowData.push(opInput ? opInput.value : '');
-                    
-                    for (let i = 2; i < cells.length - 1; i++) {
-                        const activeBtn = cells[i].querySelector('.status-btn.active');
-                        let status = '';
-                        
-                        if (activeBtn?.classList.contains('btn-ok')) {
-                            status = 'OK';
-                        } else if (activeBtn?.classList.contains('btn-atencao')) {
-                            status = 'ATENCAO';
-                        } else if (activeBtn?.classList.contains('btn-nok')) {
-                            status = 'NAO OK';
-                        }
-                        
-                        rowData.push(status);
-                    }
-                    
-                    const obsInput = cells[cells.length - 1].querySelector('.obs-input');
-                    const justificationInput = cells[cells.length - 1].querySelector('.justification-input');
-                    
-                    let obsText = obsInput ? obsInput.value : '';
-                    const justificationText = justificationInput ? justificationInput.value : '';
-                    
-                    // Se há justificativa, adicionar aos dados de justificativa
-                    if (justificationText) {
-                        justificationData.push({
-                            hora: hora,
-                            justificativa: justificationText
-                        });
-                        obsText += (obsText ? ' | ' : '') + 'Ver justificativa abaixo';
-                    }
-                    
-                    rowData.push(obsText);
-                    
-                    tableData.push(rowData);
-                }
-            });
-            
-            const headers = [
-                'HORA',
-                'O.P',
-                'MATERIAIS BOM',
-                'PROCESSOS/INSTRUCAO',
-                'MATRIZ COMPETENC.',
-                'ETIQUETAS',
-                'OBSERVACOES'
-            ];
-            
-            doc.autoTable({
-                head: [headers],
-                body: tableData,
-                startY: 45,
-                styles: {
-                    fontSize: 8,
-                    cellPadding: 3,
-                    valign: 'middle',
-                    halign: 'center'
-                },
-                headStyles: {
-                    fillColor: [44, 62, 80],
-                    textColor: [255, 255, 255],
-                    fontStyle: 'bold',
-                    fontSize: 9
-                },
-                columnStyles: {
-                    0: { cellWidth: 18, halign: 'center' }, // HORA
-                    1: { cellWidth: 20, halign: 'center' }, // O.P
-                    2: { cellWidth: 35, halign: 'center' }, // MATERIAIS (reduzido)
-                    3: { cellWidth: 40, halign: 'center' }, // PROCESSOS/IT (aumentado)
-                    4: { cellWidth: 35, halign: 'center' }, // MATRIZ (reduzido)
-                    5: { cellWidth: 25, halign: 'center' }, // ETIQUETAS
-                    6: { cellWidth: 45, halign: 'left' }    // OBSERVAÇÕES
-                },
-                didParseCell: function(data) {
-                    // Colorir células baseado no status com cores mais vivas
-                    if (data.cell.text[0]) {
-                        if (data.cell.text[0] === 'OK') {
-                            data.cell.styles.fillColor = [212, 237, 218]; // Verde mais visível
-                            data.cell.styles.textColor = [21, 87, 36];    // Verde escuro
-                            data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.fontSize = 9;
-                        } else if (data.cell.text[0] === 'ATENCAO') {
-                            data.cell.styles.fillColor = [255, 243, 205]; // Amarelo mais visível
-                            data.cell.styles.textColor = [133, 100, 4];   // Amarelo escuro
-                            data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.fontSize = 9;
-                        } else if (data.cell.text[0] === 'NAO OK') {
-                            data.cell.styles.fillColor = [248, 215, 218]; // Vermelho mais visível
-                            data.cell.styles.textColor = [114, 28, 36];   // Vermelho escuro
-                            data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.fontSize = 9;
-                        }
-                    }
-                    
-                    // Aplicar cores às células de hora baseado na validação de horário
-                    if (data.column.index === 0 && data.cell.text[0] && data.cell.text[0].includes(':')) {
-                        const rowIndex = data.row.index;
-                        const validation = hourValidationData[rowIndex];
-                        
-                        if (validation === 'valid') {
-                            // Verde - horário válido
-                            data.cell.styles.fillColor = [212, 237, 218];
-                            data.cell.styles.textColor = [21, 87, 36];
-                            data.cell.styles.fontStyle = 'bold';
-                        } else if (validation === 'warning') {
-                            // Amarelo - horário com atenção
-                            data.cell.styles.fillColor = [255, 243, 205];
-                            data.cell.styles.textColor = [133, 100, 4];
-                            data.cell.styles.fontStyle = 'bold';
-                        } else if (validation === 'danger') {
-                            // Vermelho - horário crítico
-                            data.cell.styles.fillColor = [248, 215, 218];
-                            data.cell.styles.textColor = [114, 28, 36];
-                            data.cell.styles.fontStyle = 'bold';
-                        } else {
-                            // Cor padrão para horários sem validação específica
-                            data.cell.styles.fillColor = [236, 240, 241];
-                            data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.textColor = [44, 62, 80];
-                        }
-                    }
-                }
-            });
-            
-            let finalY = doc.lastAutoTable.finalY + 15;
-            
-            // ===== ADICIONAR JUSTIFICATIVAS SE HOUVER =====
-            if (justificationData.length > 0) {
-                // Verificar se há espaço suficiente na página atual
-                if (finalY > 150) {
-                    doc.addPage();
-                    finalY = 20;
-                }
-                
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.setTextColor(0, 0, 0);
-                doc.text('JUSTIFICATIVAS DE ATRASO', 148, finalY, { align: 'center' });
-                finalY += 15;
-                
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'normal');
-                
-                justificationData.forEach((item, index) => {
-                    // Verificar se precisa de nova página
-                    if (finalY > 180) {
-                        doc.addPage();
-                        finalY = 20;
-                    }
-                    
-                    doc.setFont(undefined, 'bold');
-                    doc.setTextColor(133, 100, 4); // Cor amarela/laranja
-                    doc.text(`${item.hora}:`, 20, finalY);
-                    
-                    doc.setFont(undefined, 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    const justificationLines = doc.splitTextToSize(item.justificativa, 250);
-                    doc.text(justificationLines, 35, finalY);
-                    
-                    finalY += (justificationLines.length * 5) + 8;
-                });
-                
-                finalY += 10;
-            }
-            
-            // ===== ADICIONAR IMAGENS AO PDF =====
-            if (uploadedImages.length > 0) {
-                // Verificar se há espaço suficiente na página atual
-                if (finalY > 150) {
-                    doc.addPage();
-                    finalY = 20;
-                }
-                
-                // Título da seção de imagens
-                doc.setFontSize(14);
-                doc.setFont(undefined, 'bold');
-                doc.setTextColor(0, 0, 0);
-                doc.text('EVIDÊNCIAS FOTOGRÁFICAS', 148, finalY, { align: 'center' });
-                finalY += 15;
-                
-                // Configuração para layout das imagens
-                const imageWidth = 60;  // largura da imagem no PDF
-                const imageHeight = 45; // altura da imagem no PDF
-                const imagesPerRow = 4;  // imagens por linha
-                const imageSpacing = 70; // espaçamento entre imagens
-                const rowSpacing = 65;   // espaçamento entre linhas
-                
-                let currentX = 20;
-                let currentY = finalY;
-                let imageCount = 0;
-                
-                for (const image of uploadedImages) {
-                    try {
-                        // Adicionar imagem
-                        doc.addImage(
-                            image.data, 
-                            'JPEG', 
-                            currentX, 
-                            currentY, 
-                            imageWidth, 
-                            imageHeight
-                        );
-                        
-                        // Adicionar legenda abaixo da imagem
-                        doc.setFontSize(8);
-                        doc.setFont(undefined, 'normal');
-                        doc.setTextColor(0, 0, 0);
-                        
-                        const legendText = image.legend || image.name || 'Sem legenda';
-                        const legendLines = doc.splitTextToSize(legendText, imageWidth);
-                        doc.text(legendLines, currentX, currentY + imageHeight + 5);
-                        
-                        imageCount++;
-                        
-                        // Calcular posição da próxima imagem
-                        if (imageCount % imagesPerRow === 0) {
-                            // Nova linha
-                            currentX = 20;
-                            currentY += rowSpacing;
-                            
-                            // Verificar se precisa de nova página
-                            if (currentY > 180) { // Próximo da margem inferior
-                                doc.addPage();
-                                currentY = 20;
-                            }
-                        } else {
-                            // Próxima coluna
-                            currentX += imageSpacing;
-                        }
-                        
-                    } catch (error) {
-                        console.error('Erro ao adicionar imagem ao PDF:', error);
-                    }
-                }
-                
-                // Atualizar finalY para continuar após as imagens
-                finalY = currentY + (imageCount % imagesPerRow === 0 ? 0 : rowSpacing);
-                
-                // Se há imagens, garantir espaço extra
-                if (finalY < 180) {
-                    finalY += 20;
-                } else {
-                    doc.addPage();
-                    finalY = 20;
-                }
-            }
-            
-            // ===== RESUMO E LEGENDA =====
-            // Verificar se há espaço suficiente na página atual
-            if (finalY > 160) { // Se está muito próximo da margem inferior
-                doc.addPage();
-                finalY = 20;
-            }
-            
-            // LEGENDA (lado esquerdo)
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(0, 0, 0);
-            doc.text('LEGENDA:', 20, finalY);
-            
-            doc.setFontSize(9);
-            doc.setFont(undefined, 'normal');
-            
-            // OK com cor verde
-            doc.setFillColor(212, 237, 218);
-            doc.rect(20, finalY + 5, 5, 5, 'F');
-            doc.setTextColor(21, 87, 36);
-            doc.text('OK = Conforme', 28, finalY + 9);
-            
-            // ATENÇÃO com cor amarela
-            doc.setFillColor(255, 243, 205);
-            doc.rect(20, finalY + 12, 5, 5, 'F');
-            doc.setTextColor(133, 100, 4);
-            doc.text('ATENCAO = Requer atencao', 28, finalY + 16);
-            
-            // NÃO OK com cor vermelha
-            doc.setFillColor(248, 215, 218);
-            doc.rect(20, finalY + 19, 5, 5, 'F');
-            doc.setTextColor(114, 28, 36);
-            doc.text('NAO OK = Nao conforme', 28, finalY + 23);
-            
-            // RESUMO (lado direito, posicionado adequadamente)
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text('RESUMO:', 170, finalY);
-            
-            const countOk = document.getElementById('countOk').textContent;
-            const countAtencao = document.getElementById('countAtencao').textContent;
-            const countNok = document.getElementById('countNok').textContent;
-            
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            
-            // Contadores do resumo com cores correspondentes
-            doc.setFillColor(212, 237, 218);
-            doc.rect(170, finalY + 5, 5, 5, 'F');
-            doc.setTextColor(21, 87, 36);
-            doc.text(`OK: ${countOk}`, 178, finalY + 9);
-            
-            doc.setFillColor(255, 243, 205);
-            doc.rect(170, finalY + 12, 5, 5, 'F');
-            doc.setTextColor(133, 100, 4);
-            doc.text(`ATENCAO: ${countAtencao}`, 178, finalY + 16);
-            
-            doc.setFillColor(248, 215, 218);
-            doc.rect(170, finalY + 19, 5, 5, 'F');
-            doc.setTextColor(114, 28, 36);
-            doc.text(`NAO OK: ${countNok}`, 178, finalY + 23);
-            
-            // Rodapé (ajustado para nova posição)
-            const footerY = finalY + 35;
-            doc.setFontSize(8);
-            doc.setTextColor(128, 128, 128);
-            doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 20, footerY);
-            doc.text('Check List CQ Producao - Office 365 Integration', 148, footerY, { align: 'center' });
-            
-            if (uploadedImages.length > 0) {
-                doc.text(`Evidências: ${uploadedImages.length} imagem(ns)`, 220, footerY);
-            }
-            
-            if (justificationData.length > 0) {
-                doc.text(`Justificativas: ${justificationData.length}`, 270, footerY);
-            }
-            
-            // Salvar PDF
-            const dataFormatted = data.replace(/-/g, '');
-            const verificadorFormatted = verificador.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-            const fileName = `CheckList_CQ_${dataFormatted}_${verificadorFormatted || 'Verificador'}.pdf`;
-            doc.save(fileName);
-            
-            showToast('PDF gerado com cores, imagens, justificativas e layout otimizado!', 'success');
-        }
-
-        function clearAll() {
-            if (confirm('Tem certeza que deseja limpar todos os dados?')) {
-                document.getElementById('data').value = new Date().toISOString().split('T')[0];
-                // Se conectado ao Office 365, manter o nome
-                if (currentUser) {
-                    document.getElementById('verificador').value = currentUser.name;
-                } else {
-                    document.getElementById('verificador').value = '';
-                }
-                
-                const tbody = document.getElementById('checklistBody');
-                showEmptyState();
-                
-                document.getElementById('imagePreview').innerHTML = '';
-                uploadedImages = [];
-                
-                verificationCounter = 0;
-                updateSummary();
-                localStorage.removeItem('checklist_cq_producao');
-                showToast('Dados limpos com sucesso!', 'success');
-            }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'toast show';
-            
-            if (type === 'error') {
-                toast.style.background = '#e74c3c';
-            } else if (type === 'warning') {
-                toast.style.background = '#f39c12';
-            } else {
-                toast.style.background = '#27ae60';
-            }
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-
-        // Auto-save a cada 30 segundos
-        setInterval(() => {
-            const rows = document.querySelectorAll('#checklistBody tr:not(.empty-state)');
-            let hasRealData = false;
-            
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length > 0) {
-                    const opValue = cells[1]?.querySelector('.op-input')?.value || '';
-                    const obsValue = cells[cells.length - 1]?.querySelector('.obs-input')?.value || '';
-                    const justificationValue = cells[cells.length - 1]?.querySelector('.justification-input')?.value || '';
-                    const hasStatus = cells[2]?.querySelector('.status-btn.active') !== null;
-                    
-                    if (opValue.trim() !== '' || hasStatus || obsValue.trim() !== '' || justificationValue.trim() !== '') {
-                        hasRealData = true;
-                    }
-                }
-            });
-            
-            if (hasRealData) {
-                try {
-                    // Não validar justificativas no auto-save, apenas salvar
-                    const data = prepareDataForSave();
-                    localStorage.setItem('checklist_cq_producao', JSON.stringify(data));
-                } catch (error) {
-                    console.error('Erro no auto-save:', error);
-                }
-            }
-        }, 30000);
+        function loadData() { /* Simplificado */ }
+        function clearAll() { if(confirm("Limpar tudo?")) { localStorage.removeItem('checklist_data'); location.reload(); } }
+        function exportData() { saveData(); const blob = new Blob([localStorage.getItem('checklist_data')], {type: "application/json"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "checklist_backup.json"; a.click(); }
+        function importData(e) { const r = new FileReader(); r.onload = (ev) => { localStorage.setItem('checklist_data', ev.target.result); location.reload(); }; r.readAsText(e.target.files[0]); }
+        function showToast(msg, type="success") { const t = document.getElementById('toast'); t.innerText = msg; t.style.background = type === 'error' ? '#e74c3c' : '#27ae60'; t.className = "toast show"; setTimeout(() => t.className = "toast", 3000); }
     </script>
 </body>
 </html>
