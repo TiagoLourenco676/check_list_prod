@@ -255,17 +255,19 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // Variáveis Globais
         let verificationCounter = 0;
         let uploadedImages = [];
         let currentEditingInput = null;
         let currentEditingButton = null;
 
+        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('data').valueAsDate = new Date();
             loadData();
         });
 
-        // --- MODAL ---
+        // --- SISTEMA DE MODAL ---
         function openModal(inputElement, buttonElement, title) {
             currentEditingInput = inputElement;
             currentEditingButton = buttonElement;
@@ -403,7 +405,7 @@
                 const td = document.createElement('td');
                 td.innerHTML = `
                     <div class="status-buttons">
-                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')">✓</button>
+                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok', '${titulo}')">✓</button>
                         <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao', '${titulo}')">⚠</button>
                         <button class="status-btn btn-nok" onclick="setStatus(this, 'nok', '${titulo}')">✗</button>
                     </div>
@@ -426,16 +428,26 @@
             updateSummary();
         }
 
+        // FUNÇÃO ATUALIZADA PARA PERMITIR DESMARCAR O BOTÃO (TOGGLE)
         function setStatus(btn, status, contextTitle) {
             const container = btn.parentElement;
+            const isActive = btn.classList.contains('active');
+
+            // Remove a seleção de todos os botões do grupo
             container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+
+            // Se não estava ativo antes, nós o ativamos (toggle)
+            if (!isActive) {
+                btn.classList.add('active');
+            }
 
             const td = container.parentElement;
             const justBtn = td.querySelector('.column-just-btn');
             const justInput = td.querySelector('.col-just-input');
 
-            if (status === 'atencao' || status === 'nok') {
+            // Verifica se há algum botão de atenção ou nok ativo agora
+            const currentActive = container.querySelector('.status-btn.active');
+            if (currentActive && (currentActive.classList.contains('btn-atencao') || currentActive.classList.contains('btn-nok'))) {
                 justBtn.classList.add('show');
                 if (justInput.value.trim() === '') {
                     openModal(justInput, justBtn, `Justificativa Obrigatória: ${contextTitle}`);
@@ -443,6 +455,7 @@
             } else {
                 justBtn.classList.remove('show');
             }
+            
             updateSummary();
         }
 
@@ -526,7 +539,9 @@
                 const id = parseInt(container.getAttribute('data-id'));
                 const textarea = container.querySelector('.image-legend-input');
                 const imgObj = uploadedImages.find(i => i.id === id);
-                if (imgObj && textarea) imgObj.name = textarea.value;
+                if (imgObj && textarea) {
+                    imgObj.name = textarea.value;
+                }
             });
         }
 
@@ -536,9 +551,9 @@
 
             rows.forEach((row, index) => {
                 const timeStr = row.cells[0].innerText.split('\n')[0].trim();
+                
                 const timeBtn = row.querySelector('.time-just-btn');
                 const timeInput = row.querySelector('.time-just-input');
-                
                 if (timeBtn.classList.contains('required') && timeInput.value.trim() === '') {
                     errors.push(`Horário ${timeStr}: Falta justificativa de atraso`);
                     timeBtn.style.border = "2px solid red"; 
@@ -581,7 +596,6 @@
             const tableBody = [];
             const rows = document.querySelectorAll('#checklistBody tr');
 
-            // Arrays para o Dashboard no PDF
             const dashProblems = [];
             const dashObs = [];
 
@@ -596,7 +610,6 @@
                 rowData.push(horaTxt);
                 rowData.push(opStr);
 
-                // Dashboard Extract Atraso
                 if (row.cells[0].classList.contains('time-danger')) {
                     dashProblems.push(`[HORÁRIO - ATRASO] ${timeStr} (OP: ${opStr}): ${timeJust || 'Pendente justificar'}`);
                 }
@@ -612,7 +625,6 @@
                         if (activeBtn.classList.contains('btn-atencao')) statusTxt = "ATENÇÃO";
                         if (activeBtn.classList.contains('btn-nok')) statusTxt = "NÃO OK";
                         
-                        // Dashboard Extract Problemas
                         if (activeBtn.classList.contains('btn-atencao') || activeBtn.classList.contains('btn-nok')) {
                             const justText = td.querySelector('.col-just-input').value || 'Pendente justificar';
                             dashProblems.push(`[${headers[i-2]} - ${statusTxt}] ${timeStr} (OP: ${opStr}): ${justText}`);
@@ -627,13 +639,11 @@
                 rowData.push(obsText);
                 tableBody.push(rowData);
 
-                // Dashboard Extract Obs
                 if (obsText && obsText.trim() !== '') {
                     dashObs.push(`${timeStr} (OP: ${opStr}): ${obsText}`);
                 }
             });
 
-            // Gerar Tabela Principal
             doc.autoTable({
                 head: [['HORA', 'O.P', 'MATERIAIS', 'PROCESSOS', 'MATRIZ', 'ETIQUETAS', 'OBSERVAÇÕES']],
                 body: tableBody,
@@ -655,7 +665,6 @@
 
             let finalY = doc.lastAutoTable.finalY + 15;
 
-            // --- IMPRESSÃO DO DASHBOARD NO PDF ---
             if (finalY > 170) { doc.addPage(); finalY = 20; }
             
             doc.setFontSize(14);
@@ -664,9 +673,8 @@
             doc.text("DASHBOARD DE OCORRÊNCIAS", 148, finalY, { align: 'center' });
             finalY += 10;
 
-            // Problemas
             doc.setFontSize(11);
-            doc.setTextColor(231, 76, 60); // Vermelho
+            doc.setTextColor(231, 76, 60); 
             doc.text("Problemas Encontrados:", 15, finalY);
             finalY += 7;
             
@@ -687,9 +695,8 @@
             
             finalY += 5;
 
-            // Observações
             doc.setFontSize(11);
-            doc.setTextColor(52, 152, 219); // Azul
+            doc.setTextColor(52, 152, 219); 
             doc.setFont(undefined, 'bold');
             doc.text("Observações Gerais:", 15, finalY);
             finalY += 7;
@@ -711,7 +718,6 @@
 
             finalY += 15;
 
-            // --- IMPRESSÃO DAS FOTOS ---
             if (uploadedImages.length > 0) {
                 if(finalY > 150) { doc.addPage(); finalY = 20; }
                 doc.setFontSize(14); doc.setTextColor(44, 62, 80); doc.setFont(undefined, 'bold');
