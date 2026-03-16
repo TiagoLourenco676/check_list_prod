@@ -405,7 +405,7 @@
                 const td = document.createElement('td');
                 td.innerHTML = `
                     <div class="status-buttons">
-                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')">✓</button>
+                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok', '${titulo}')">✓</button>
                         <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao', '${titulo}')">⚠</button>
                         <button class="status-btn btn-nok" onclick="setStatus(this, 'nok', '${titulo}')">✗</button>
                     </div>
@@ -428,16 +428,27 @@
             updateSummary();
         }
 
+        // --- FUNÇÃO DE STATUS CORRIGIDA PARA DESMARCAR (TOGGLE) ---
         function setStatus(btn, status, contextTitle) {
             const container = btn.parentElement;
+            const isActive = btn.classList.contains('active'); // Verifica se JÁ ESTAVA ativo
+
+            // 1. Remove a seleção de TODOS os botões daquele grupo
             container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+
+            // 2. Se o botão clicado não estava ativo antes, nós o ativamos (Efeito Toggle/Interruptor)
+            if (!isActive) {
+                btn.classList.add('active');
+            }
 
             const td = container.parentElement;
             const justBtn = td.querySelector('.column-just-btn');
             const justInput = td.querySelector('.col-just-input');
 
-            if (status === 'atencao' || status === 'nok') {
+            // 3. Verifica se algum botão ficou ativo e precisa de justificativa
+            const currentActive = container.querySelector('.status-btn.active');
+            
+            if (currentActive && (currentActive.classList.contains('btn-atencao') || currentActive.classList.contains('btn-nok'))) {
                 justBtn.classList.add('show');
                 if (justInput.value.trim() === '') {
                     openModal(justInput, justBtn, `Justificativa Obrigatória: ${contextTitle}`);
@@ -445,6 +456,7 @@
             } else {
                 justBtn.classList.remove('show');
             }
+            
             updateSummary();
         }
 
@@ -777,7 +789,6 @@
             localStorage.setItem('checklist_data', JSON.stringify(data)); showToast("Salvo localmente!"); 
         }
         
-        // --- FUNÇÃO CORRIGIDA PARA CARREGAR O BACKUP JSON ---
         function loadData() {
             const saved = localStorage.getItem('checklist_data');
             if(!saved) return;
@@ -788,7 +799,6 @@
                 if(data.date) document.getElementById('data').value = data.date;
                 if(data.verificador) document.getElementById('verificador').value = data.verificador;
                 
-                // Recriar imagens do backup
                 if(data.images && Array.isArray(data.images)) {
                     uploadedImages = data.images;
                     const preview = document.getElementById('imagePreview');
@@ -806,7 +816,6 @@
                     });
                 }
 
-                // Recriar linhas da tabela do backup
                 const tbody = document.getElementById('checklistBody');
                 tbody.innerHTML = '';
                 verificationCounter = 0; 
