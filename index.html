@@ -390,7 +390,7 @@
             tdHora.className = `hour-cell ${timeClass}`;
             tdHora.innerHTML = `
                 ${now}
-                <button class="delete-row-btn ${isLate ? 'disabled' : ''}" onclick="${isLate ? "alert('Bloqueado: Justifique o atraso antes.')" : "this.closest('tr').remove(); updateSummary();"}">×</button>
+                <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary();">×</button>
                 <button class="time-just-btn ${isLate ? 'required' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">Justificar Atraso</button>
                 <input type="hidden" class="time-just-input">
             `;
@@ -405,7 +405,7 @@
                 const td = document.createElement('td');
                 td.innerHTML = `
                     <div class="status-buttons">
-                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok', '${titulo}')">✓</button>
+                        <button class="status-btn btn-ok" onclick="setStatus(this, 'ok')">✓</button>
                         <button class="status-btn btn-atencao" onclick="setStatus(this, 'atencao', '${titulo}')">⚠</button>
                         <button class="status-btn btn-nok" onclick="setStatus(this, 'nok', '${titulo}')">✗</button>
                     </div>
@@ -428,26 +428,16 @@
             updateSummary();
         }
 
-        // FUNÇÃO ATUALIZADA PARA PERMITIR DESMARCAR O BOTÃO (TOGGLE)
         function setStatus(btn, status, contextTitle) {
             const container = btn.parentElement;
-            const isActive = btn.classList.contains('active');
-
-            // Remove a seleção de todos os botões do grupo
             container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
-
-            // Se não estava ativo antes, nós o ativamos (toggle)
-            if (!isActive) {
-                btn.classList.add('active');
-            }
+            btn.classList.add('active');
 
             const td = container.parentElement;
             const justBtn = td.querySelector('.column-just-btn');
             const justInput = td.querySelector('.col-just-input');
 
-            // Verifica se há algum botão de atenção ou nok ativo agora
-            const currentActive = container.querySelector('.status-btn.active');
-            if (currentActive && (currentActive.classList.contains('btn-atencao') || currentActive.classList.contains('btn-nok'))) {
+            if (status === 'atencao' || status === 'nok') {
                 justBtn.classList.add('show');
                 if (justInput.value.trim() === '') {
                     openModal(justInput, justBtn, `Justificativa Obrigatória: ${contextTitle}`);
@@ -455,7 +445,6 @@
             } else {
                 justBtn.classList.remove('show');
             }
-            
             updateSummary();
         }
 
@@ -787,7 +776,119 @@
             });
             localStorage.setItem('checklist_data', JSON.stringify(data)); showToast("Salvo localmente!"); 
         }
-        function loadData() { /* Simplificado */ }
+        
+        // --- FUNÇÃO CORRIGIDA PARA CARREGAR O BACKUP JSON ---
+        function loadData() {
+            const saved = localStorage.getItem('checklist_data');
+            if(!saved) return;
+            
+            try {
+                const data = JSON.parse(saved);
+                
+                if(data.date) document.getElementById('data').value = data.date;
+                if(data.verificador) document.getElementById('verificador').value = data.verificador;
+                
+                // Recriar imagens do backup
+                if(data.images && Array.isArray(data.images)) {
+                    uploadedImages = data.images;
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = '';
+                    uploadedImages.forEach(img => {
+                        const div = document.createElement('div'); 
+                        div.className = 'image-container'; 
+                        div.setAttribute('data-id', img.id);
+                        div.innerHTML = `
+                            <button class="image-delete-btn" onclick="deleteImage(${img.id})">×</button>
+                            <img src="${img.data}">
+                            <textarea class="image-legend-input" placeholder="Digite a legenda...">${img.name || ''}</textarea>
+                        `;
+                        preview.appendChild(div);
+                    });
+                }
+
+                // Recriar linhas da tabela do backup
+                const tbody = document.getElementById('checklistBody');
+                tbody.innerHTML = '';
+                verificationCounter = 0; 
+                
+                if (data.rows && Array.isArray(data.rows)) {
+                    data.rows.forEach(rowD => {
+                        verificationCounter++;
+                        const row = document.createElement('tr');
+                        row.id = `row-${verificationCounter}`;
+                        row.setAttribute('data-verification-id', verificationCounter);
+                        
+                        const rows = tbody.querySelectorAll('tr');
+                        let prevTime = null;
+                        if (rows.length > 0) {
+                            const lastRow = rows[rows.length - 1];
+                            prevTime = lastRow.cells[0].innerText.split('\n')[0].trim();
+                        }
+                        
+                        const timeClass = validateTime(rowD.hora, prevTime);
+                        const isLate = timeClass !== 'time-valid';
+
+                        const tdHora = document.createElement('td');
+                        tdHora.className = `hour-cell ${timeClass}`;
+                        
+                        let justBtnText = (rowD.timeJust && rowD.timeJust.trim() !== '') ? 'Justificado' : 'Justificar Atraso';
+                        let justBtnClass = isLate ? 'required' : '';
+                        if (rowD.timeJust && rowD.timeJust.trim() !== '') justBtnClass += ' filled has-content';
+                        
+                        tdHora.innerHTML = `
+                            ${rowD.hora}
+                            <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary();">×</button>
+                            <button class="time-just-btn ${justBtnClass}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">${justBtnText}</button>
+                            <input type="hidden" class="time-just-input" value="${rowD.timeJust || ''}">
+                        `;
+                        row.appendChild(tdHora);
+
+                        const tdOp = document.createElement('td');
+                        tdOp.innerHTML = `<input type="text" class="op-input" placeholder="O.P" value="${rowD.op || ''}">`;
+                        row.appendChild(tdOp);
+
+                        const titulos = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
+                        rowD.cols.forEach((col, idx) => {
+                            const td = document.createElement('td');
+                            const isAtencao = col.status === 'atencao';
+                            const isNok = col.status === 'nok';
+                            const isOk = col.status === 'ok';
+                            const showJust = isAtencao || isNok;
+                            const hasJust = col.just && col.just.trim() !== '';
+                            
+                            td.innerHTML = `
+                                <div class="status-buttons">
+                                    <button class="status-btn btn-ok ${isOk ? 'active' : ''}" onclick="setStatus(this, 'ok', '${titulos[idx]}')">✓</button>
+                                    <button class="status-btn btn-atencao ${isAtencao ? 'active' : ''}" onclick="setStatus(this, 'atencao', '${titulos[idx]}')">⚠</button>
+                                    <button class="status-btn btn-nok ${isNok ? 'active' : ''}" onclick="setStatus(this, 'nok', '${titulos[idx]}')">✗</button>
+                                </div>
+                                <button class="column-just-btn ${showJust ? 'show' : ''} ${hasJust ? 'filled has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa: ${titulos[idx]}')">📝 Justificar</button>
+                                <input type="hidden" class="col-just-input" value="${col.just || ''}">
+                            `;
+                            row.appendChild(td);
+                        });
+
+                        const tdObs = document.createElement('td');
+                        const hasObs = rowD.obs && rowD.obs.trim() !== '';
+                        const obsText = hasObs ? (rowD.obs.substring(0, 15) + (rowD.obs.length > 15 ? '...' : '')) : 'Adicionar Obs';
+                        
+                        tdObs.innerHTML = `
+                            <button class="btn-text-edit ${hasObs ? 'has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Observações Gerais')">${obsText}</button>
+                            <input type="hidden" class="obs-general-input" value="${rowD.obs || ''}">
+                        `;
+                        row.appendChild(tdObs);
+
+                        tbody.appendChild(row);
+                    });
+                }
+                
+                updateSummary();
+            } catch (e) {
+                console.error("Erro ao carregar dados:", e);
+                showToast("Erro ao abrir o backup", "error");
+            }
+        }
+        
         function clearAll() { if(confirm("Limpar tudo?")) { localStorage.removeItem('checklist_data'); location.reload(); } }
         function exportData() { saveData(); const blob = new Blob([localStorage.getItem('checklist_data')], {type: "application/json"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "checklist_backup.json"; a.click(); }
         function importData(e) { const r = new FileReader(); r.onload = (ev) => { localStorage.setItem('checklist_data', ev.target.result); location.reload(); }; r.readAsText(e.target.files[0]); }
