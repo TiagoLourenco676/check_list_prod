@@ -260,6 +260,7 @@
         let uploadedImages = [];
         let currentEditingInput = null;
         let currentEditingButton = null;
+        let isClearing = false;
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
@@ -308,6 +309,7 @@
             }
             closeModal();
             updateSummary();
+            performSaveData(); // Auto-save ao fechar o modal
         }
 
         // --- LÓGICA DE TEMPO ---
@@ -390,7 +392,7 @@
             tdHora.className = `hour-cell ${timeClass}`;
             tdHora.innerHTML = `
                 ${now}
-                <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary();">×</button>
+                <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary(); performSaveData();">×</button>
                 <button class="time-just-btn ${isLate ? 'required' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">Justificar Atraso</button>
                 <input type="hidden" class="time-just-input">
             `;
@@ -426,17 +428,15 @@
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
             updateSummary();
+            performSaveData(); // Auto-save ao adicionar linha
         }
 
-        // --- FUNÇÃO DE STATUS CORRIGIDA PARA DESMARCAR (TOGGLE) ---
         function setStatus(btn, status, contextTitle) {
             const container = btn.parentElement;
-            const isActive = btn.classList.contains('active'); // Verifica se JÁ ESTAVA ativo
+            const isActive = btn.classList.contains('active');
 
-            // 1. Remove a seleção de TODOS os botões daquele grupo
             container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
 
-            // 2. Se o botão clicado não estava ativo antes, nós o ativamos (Efeito Toggle/Interruptor)
             if (!isActive) {
                 btn.classList.add('active');
             }
@@ -445,7 +445,6 @@
             const justBtn = td.querySelector('.column-just-btn');
             const justInput = td.querySelector('.col-just-input');
 
-            // 3. Verifica se algum botão ficou ativo e precisa de justificativa
             const currentActive = container.querySelector('.status-btn.active');
             
             if (currentActive && (currentActive.classList.contains('btn-atencao') || currentActive.classList.contains('btn-nok'))) {
@@ -458,6 +457,7 @@
             }
             
             updateSummary();
+            performSaveData(); // Auto-save ao alterar status
         }
 
         // --- DASHBOARD ---
@@ -585,6 +585,7 @@
         function generatePDF() {
             if (!validateAll()) return;
             syncImageLegends(); 
+            performSaveData(); // Salva antes do PDF
 
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('l', 'mm', 'a4');
@@ -766,16 +767,19 @@
                 }
             });
             event.target.value = ''; 
+            performSaveData(); // Auto-save
         }
 
         function deleteImage(id) { 
             uploadedImages = uploadedImages.filter(img => img.id !== id); 
             const el = document.querySelector(`.image-container[data-id="${id}"]`); 
             if(el) el.remove(); 
+            performSaveData(); // Auto-save
         }
 
-        // --- STORAGE ---
-        function saveData() { 
+        // --- AUTO-SAVE E STORAGE ---
+        function performSaveData() { 
+            if (isClearing) return; // Não salvar se estiver limpando
             syncImageLegends(); 
             const data = { date: document.getElementById('data').value, verificador: document.getElementById('verificador').value, rows: [], images: uploadedImages };
             document.querySelectorAll('#checklistBody tr').forEach(row => {
@@ -786,8 +790,19 @@
                 }
                 data.rows.push(rowData);
             });
-            localStorage.setItem('checklist_data', JSON.stringify(data)); showToast("Salvo localmente!"); 
+            localStorage.setItem('checklist_data', JSON.stringify(data)); 
         }
+
+        function saveData() { 
+            performSaveData();
+            showToast("Salvo localmente!"); 
+        }
+
+        // Rotina de auto-save a cada 10 segundos
+        setInterval(performSaveData, 10000);
+
+        // Auto-save se a aba for fechada ou atualizada
+        window.addEventListener('beforeunload', performSaveData);
         
         function loadData() {
             const saved = localStorage.getItem('checklist_data');
@@ -846,7 +861,7 @@
                         
                         tdHora.innerHTML = `
                             ${rowD.hora}
-                            <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary();">×</button>
+                            <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary(); performSaveData();">×</button>
                             <button class="time-just-btn ${justBtnClass}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">${justBtnText}</button>
                             <input type="hidden" class="time-just-input" value="${rowD.timeJust || ''}">
                         `;
@@ -897,11 +912,40 @@
                 showToast("Erro ao abrir o backup", "error");
             }
         }
-        
-        function clearAll() { if(confirm("Limpar tudo?")) { localStorage.removeItem('checklist_data'); location.reload(); } }
-        function exportData() { saveData(); const blob = new Blob([localStorage.getItem('checklist_data')], {type: "application/json"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "checklist_backup.json"; a.click(); }
-        function importData(e) { const r = new FileReader(); r.onload = (ev) => { localStorage.setItem('checklist_data', ev.target.result); location.reload(); }; r.readAsText(e.target.files[0]); }
-        function showToast(msg, type="success") { const t = document.getElementById('toast'); t.innerText = msg; t.style.background = type === 'error' ? '#e74c3c' : '#27ae60'; t.className = "toast show"; setTimeout(() => t.className = "toast", 3000); }
+
+        function clearAll() { 
+            if(confirm("Limpar tudo? Atenção: isso apagará todos os dados salvos.")) { 
+                isClearing = true;
+                localStorage.removeItem('checklist_data'); 
+                location.reload(); 
+            } 
+        }
+
+        function exportData() { 
+            performSaveData(); 
+            const blob = new Blob([localStorage.getItem('checklist_data')], {type: "application/json"}); 
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = "checklist_backup.json"; 
+            a.click(); 
+        }
+
+        function importData(e) { 
+            const r = new FileReader(); 
+            r.onload = (ev) => { 
+                localStorage.setItem('checklist_data', ev.target.result); 
+                location.reload(); 
+            }; 
+            r.readAsText(e.target.files[0]); 
+        }
+
+        function showToast(msg, type="success") { 
+            const t = document.getElementById('toast'); 
+            t.innerText = msg; 
+            t.style.background = type === 'error' ? '#e74c3c' : '#27ae60'; 
+            t.className = "toast show"; 
+            setTimeout(() => t.className = "toast", 3000); 
+        }
     </script>
 </body>
 </html>
