@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Check List CQ Produção</title>
     
+    <!-- PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
@@ -130,11 +131,9 @@
         .toast { position: fixed; top: 20px; right: 20px; padding: 15px 20px; background: #27ae60; color: white; border-radius: 5px; transform: translateX(200%); transition: transform 0.3s; z-index: 3000; }
         .toast.show { transform: translateX(0); }
         
-        /* Summary */
+        /* Summary e Dashboard */
         .summary-stats { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
         .stat-item { padding: 10px 20px; background: white; border-radius: 8px; text-align: center; font-weight: bold; }
-        
-        /* Dashboard CSS */
         .dashboard-container { margin-top: 30px; padding: 25px; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-top: 5px solid #3498db; display: none; }
         .dashboard-container h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; font-size: 1.5em; }
         .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
@@ -168,6 +167,7 @@
 </head>
 <body>
 
+    <!-- Modal Universal -->
     <div class="modal-overlay" id="universalModal">
         <div class="modal-content">
             <h3 class="modal-title" id="modalTitle">Editar Texto</h3>
@@ -199,6 +199,7 @@
                 <button class="btn-new-verification" onclick="addNewVerification()">➕ Nova Verificação</button>
                 <div class="image-upload-section">
                     <button class="image-btn" onclick="document.getElementById('imageUpload').click()">📷 Adicionar Fotos</button>
+                    <!-- allow capture from camera directly if on mobile -->
                     <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)" style="display:none" capture="environment">
                     <div id="imagePreview" class="image-preview"></div>
                 </div>
@@ -225,6 +226,7 @@
                 <div class="stat-item" style="color: #e74c3c;">NÃO OK: <span id="countNok">0</span></div>
             </div>
 
+            <!-- DASHBOARD -->
             <div class="dashboard-container" id="dashboardContainer">
                 <h2>📊 Dashboard de Ocorrências</h2>
                 <div class="dashboard-grid">
@@ -255,14 +257,12 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // Variáveis Globais
         let verificationCounter = 0;
         let uploadedImages = [];
         let currentEditingInput = null;
         let currentEditingButton = null;
         let isClearing = false;
 
-        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('data').valueAsDate = new Date();
             loadData();
@@ -309,7 +309,7 @@
             }
             closeModal();
             updateSummary();
-            performSaveData(); // Salva em segundo plano
+            performSaveData(); 
         }
 
         // --- LÓGICA DE TEMPO E INTERVALO ---
@@ -364,6 +364,107 @@
                 }
             }
             return true;
+        }
+
+        // --- FUNÇÃO DE RENDERIZAR DADOS (USADA PARA LOAD E IMPORT) ---
+        function renderData(data) {
+            if(data.date) document.getElementById('data').value = data.date;
+            if(data.verificador) document.getElementById('verificador').value = data.verificador;
+            
+            uploadedImages = [];
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+            
+            if(data.images && Array.isArray(data.images)) {
+                uploadedImages = data.images;
+                uploadedImages.forEach(img => {
+                    const div = document.createElement('div'); 
+                    div.className = 'image-container'; 
+                    div.setAttribute('data-id', img.id);
+                    div.innerHTML = `
+                        <button class="image-delete-btn" onclick="deleteImage(${img.id})">×</button>
+                        <img src="${img.data}">
+                        <textarea class="image-legend-input" placeholder="Digite a legenda...">${img.name || ''}</textarea>
+                    `;
+                    preview.appendChild(div);
+                });
+            }
+
+            const tbody = document.getElementById('checklistBody');
+            tbody.innerHTML = '';
+            verificationCounter = 0; 
+            
+            if (data.rows && Array.isArray(data.rows)) {
+                data.rows.forEach(rowD => {
+                    verificationCounter++;
+                    const row = document.createElement('tr');
+                    row.id = `row-${verificationCounter}`;
+                    row.setAttribute('data-verification-id', verificationCounter);
+                    
+                    const rows = tbody.querySelectorAll('tr');
+                    let prevTime = null;
+                    if (rows.length > 0) {
+                        const lastRow = rows[rows.length - 1];
+                        prevTime = lastRow.cells[0].innerText.split('\n')[0].trim();
+                    }
+                    
+                    const timeClass = validateTime(rowD.hora, prevTime);
+                    const isLate = timeClass !== 'time-valid';
+
+                    const tdHora = document.createElement('td');
+                    tdHora.className = `hour-cell ${timeClass}`;
+                    
+                    let justBtnText = (rowD.timeJust && rowD.timeJust.trim() !== '') ? 'Justificado' : 'Justificar Atraso';
+                    let justBtnClass = isLate ? 'required' : '';
+                    if (rowD.timeJust && rowD.timeJust.trim() !== '') justBtnClass += ' filled has-content';
+                    
+                    tdHora.innerHTML = `
+                        ${rowD.hora}
+                        <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary(); performSaveData();">×</button>
+                        <button class="time-just-btn ${justBtnClass}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">${justBtnText}</button>
+                        <input type="hidden" class="time-just-input" value="${rowD.timeJust || ''}">
+                    `;
+                    row.appendChild(tdHora);
+
+                    const tdOp = document.createElement('td');
+                    tdOp.innerHTML = `<input type="text" class="op-input" placeholder="O.P" value="${rowD.op || ''}">`;
+                    row.appendChild(tdOp);
+
+                    const titulos = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
+                    rowD.cols.forEach((col, idx) => {
+                        const td = document.createElement('td');
+                        const isAtencao = col.status === 'atencao';
+                        const isNok = col.status === 'nok';
+                        const isOk = col.status === 'ok';
+                        const showJust = isAtencao || isNok;
+                        const hasJust = col.just && col.just.trim() !== '';
+                        
+                        td.innerHTML = `
+                            <div class="status-buttons">
+                                <button class="status-btn btn-ok ${isOk ? 'active' : ''}" onclick="setStatus(this, 'ok', '${titulos[idx]}')">✓</button>
+                                <button class="status-btn btn-atencao ${isAtencao ? 'active' : ''}" onclick="setStatus(this, 'atencao', '${titulos[idx]}')">⚠</button>
+                                <button class="status-btn btn-nok ${isNok ? 'active' : ''}" onclick="setStatus(this, 'nok', '${titulos[idx]}')">✗</button>
+                            </div>
+                            <button class="column-just-btn ${showJust ? 'show' : ''} ${hasJust ? 'filled has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa: ${titulos[idx]}')">📝 Justificar</button>
+                            <input type="hidden" class="col-just-input" value="${col.just || ''}">
+                        `;
+                        row.appendChild(td);
+                    });
+
+                    const tdObs = document.createElement('td');
+                    const hasObs = rowD.obs && rowD.obs.trim() !== '';
+                    const obsText = hasObs ? (rowD.obs.substring(0, 15) + (rowD.obs.length > 15 ? '...' : '')) : 'Adicionar Obs';
+                    
+                    tdObs.innerHTML = `
+                        <button class="btn-text-edit ${hasObs ? 'has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Observações Gerais')">${obsText}</button>
+                        <input type="hidden" class="obs-general-input" value="${rowD.obs || ''}">
+                    `;
+                    row.appendChild(tdObs);
+
+                    tbody.appendChild(row);
+                });
+            }
+            updateSummary();
         }
 
         // --- TABELA E LINHAS ---
@@ -428,7 +529,7 @@
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
             updateSummary();
-            performSaveData(); // Salva em segundo plano
+            performSaveData(); 
         }
 
         function setStatus(btn, status, contextTitle) {
@@ -742,7 +843,7 @@
             showToast("PDF Gerado!");
         }
 
-        // --- UPLOAD IMAGENS COM COMPRESSÃO (EVITA TRAVAMENTOS DE MEMÓRIA) ---
+        // --- UPLOAD IMAGENS COM COMPRESSÃO EXTREMA (EVITA TRAVAMENTOS DE MEMÓRIA) ---
         function handleImageUpload(event) {
             const files = Array.from(event.target.files);
             const preview = document.getElementById('imagePreview');
@@ -753,8 +854,9 @@
                         const img = new Image();
                         img.onload = function() {
                             const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 800; // Reduz o tamanho da imagem em 80% para poupar memória
-                            const MAX_HEIGHT = 800;
+                            // AJUSTE CRÍTICO: Reduzido para 400x400 para garantir dezenas de fotos no cache
+                            const MAX_WIDTH = 400; 
+                            const MAX_HEIGHT = 400;
                             let width = img.width;
                             let height = img.height;
 
@@ -768,7 +870,8 @@
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, width, height);
                             
-                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); // Compressão forte para PDF
+                            // Qualidade 0.4 para gerar uma string bem leve (ideal para PDF)
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.4); 
                             
                             const imgId = Date.now() + Math.floor(Math.random() * 1000);
                             const imgData = { id: imgId, name: file.name, data: compressedDataUrl };
@@ -783,7 +886,7 @@
                                 <textarea class="image-legend-input" placeholder="Digite a legenda...">${file.name}</textarea>
                             `;
                             preview.appendChild(div);
-                            performSaveData(); // Salva estado após carregar imagem
+                            performSaveData(); 
                         };
                         img.src = e.target.result;
                     }; 
@@ -828,117 +931,48 @@
             if (showFeedback) showToast("Salvo localmente!"); 
         }
 
-        // Auto-save a cada 10 segundos
         setInterval(performSaveData, 10000);
-        // Auto-save se tentar fechar a aba
         window.addEventListener('beforeunload', performSaveData);
 
+        // --- IMPORTAÇÃO E CARREGAMENTO CORRIGIDOS ---
         function loadData() {
             const saved = localStorage.getItem('checklist_data');
             if(!saved) return;
-            
             try {
                 const data = JSON.parse(saved);
-                if(data.date) document.getElementById('data').value = data.date;
-                if(data.verificador) document.getElementById('verificador').value = data.verificador;
-                
-                if(data.images && Array.isArray(data.images)) {
-                    uploadedImages = data.images;
-                    const preview = document.getElementById('imagePreview');
-                    preview.innerHTML = '';
-                    uploadedImages.forEach(img => {
-                        const div = document.createElement('div'); 
-                        div.className = 'image-container'; 
-                        div.setAttribute('data-id', img.id);
-                        div.innerHTML = `
-                            <button class="image-delete-btn" onclick="deleteImage(${img.id})">×</button>
-                            <img src="${img.data}">
-                            <textarea class="image-legend-input" placeholder="Digite a legenda...">${img.name || ''}</textarea>
-                        `;
-                        preview.appendChild(div);
-                    });
-                }
-
-                const tbody = document.getElementById('checklistBody');
-                tbody.innerHTML = '';
-                verificationCounter = 0; 
-                
-                if (data.rows && Array.isArray(data.rows)) {
-                    data.rows.forEach(rowD => {
-                        verificationCounter++;
-                        const row = document.createElement('tr');
-                        row.id = `row-${verificationCounter}`;
-                        row.setAttribute('data-verification-id', verificationCounter);
-                        
-                        const rows = tbody.querySelectorAll('tr');
-                        let prevTime = null;
-                        if (rows.length > 0) {
-                            const lastRow = rows[rows.length - 1];
-                            prevTime = lastRow.cells[0].innerText.split('\n')[0].trim();
-                        }
-                        
-                        const timeClass = validateTime(rowD.hora, prevTime);
-                        const isLate = timeClass !== 'time-valid';
-
-                        const tdHora = document.createElement('td');
-                        tdHora.className = `hour-cell ${timeClass}`;
-                        
-                        let justBtnText = (rowD.timeJust && rowD.timeJust.trim() !== '') ? 'Justificado' : 'Justificar Atraso';
-                        let justBtnClass = isLate ? 'required' : '';
-                        if (rowD.timeJust && rowD.timeJust.trim() !== '') justBtnClass += ' filled has-content';
-                        
-                        tdHora.innerHTML = `
-                            ${rowD.hora}
-                            <button class="delete-row-btn" onclick="this.closest('tr').remove(); updateSummary(); performSaveData();">×</button>
-                            <button class="time-just-btn ${justBtnClass}" onclick="openModal(this.nextElementSibling, this, 'Justificativa de Horário')">${justBtnText}</button>
-                            <input type="hidden" class="time-just-input" value="${rowD.timeJust || ''}">
-                        `;
-                        row.appendChild(tdHora);
-
-                        const tdOp = document.createElement('td');
-                        tdOp.innerHTML = `<input type="text" class="op-input" placeholder="O.P" value="${rowD.op || ''}">`;
-                        row.appendChild(tdOp);
-
-                        const titulos = ['Materiais', 'Processos', 'Matriz', 'Etiquetas'];
-                        rowD.cols.forEach((col, idx) => {
-                            const td = document.createElement('td');
-                            const isAtencao = col.status === 'atencao';
-                            const isNok = col.status === 'nok';
-                            const isOk = col.status === 'ok';
-                            const showJust = isAtencao || isNok;
-                            const hasJust = col.just && col.just.trim() !== '';
-                            
-                            td.innerHTML = `
-                                <div class="status-buttons">
-                                    <button class="status-btn btn-ok ${isOk ? 'active' : ''}" onclick="setStatus(this, 'ok', '${titulos[idx]}')">✓</button>
-                                    <button class="status-btn btn-atencao ${isAtencao ? 'active' : ''}" onclick="setStatus(this, 'atencao', '${titulos[idx]}')">⚠</button>
-                                    <button class="status-btn btn-nok ${isNok ? 'active' : ''}" onclick="setStatus(this, 'nok', '${titulos[idx]}')">✗</button>
-                                </div>
-                                <button class="column-just-btn ${showJust ? 'show' : ''} ${hasJust ? 'filled has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Justificativa: ${titulos[idx]}')">📝 Justificar</button>
-                                <input type="hidden" class="col-just-input" value="${col.just || ''}">
-                            `;
-                            row.appendChild(td);
-                        });
-
-                        const tdObs = document.createElement('td');
-                        const hasObs = rowD.obs && rowD.obs.trim() !== '';
-                        const obsText = hasObs ? (rowD.obs.substring(0, 15) + (rowD.obs.length > 15 ? '...' : '')) : 'Adicionar Obs';
-                        
-                        tdObs.innerHTML = `
-                            <button class="btn-text-edit ${hasObs ? 'has-content' : ''}" onclick="openModal(this.nextElementSibling, this, 'Observações Gerais')">${obsText}</button>
-                            <input type="hidden" class="obs-general-input" value="${rowD.obs || ''}">
-                        `;
-                        row.appendChild(tdObs);
-
-                        tbody.appendChild(row);
-                    });
-                }
-                
-                updateSummary();
+                renderData(data); 
             } catch (e) {
                 console.error("Erro ao carregar dados:", e);
-                showToast("Erro ao abrir o backup", "error");
             }
+        }
+
+        function importData(e) { 
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const r = new FileReader(); 
+            r.onload = (ev) => { 
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    renderData(data);
+                    
+                    try {
+                        localStorage.setItem('checklist_data', ev.target.result); 
+                    } catch (e) {
+                        showToast("Importado, mas o Auto-save está desativado (Memória Cheia).", "warning");
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    showToast("Arquivo importado com sucesso!");
+                    
+                } catch (err) {
+                    console.error("Erro no Import:", err);
+                    alert("Erro ao ler o arquivo. Certifique-se de que é um backup válido.");
+                }
+                e.target.value = ''; 
+            }; 
+            r.readAsText(file); 
         }
 
         function clearAll() { 
@@ -958,19 +992,10 @@
             a.click(); 
         }
 
-        function importData(e) { 
-            const r = new FileReader(); 
-            r.onload = (ev) => { 
-                localStorage.setItem('checklist_data', ev.target.result); 
-                location.reload(); 
-            }; 
-            r.readAsText(e.target.files[0]); 
-        }
-
         function showToast(msg, type="success") { 
             const t = document.getElementById('toast'); 
             t.innerText = msg; 
-            t.style.background = type === 'error' ? '#e74c3c' : '#27ae60'; 
+            t.style.background = type === 'error' ? '#e74c3c' : (type === 'warning' ? '#f39c12' : '#27ae60'); 
             t.className = "toast show"; 
             setTimeout(() => t.className = "toast", 3000); 
         }
