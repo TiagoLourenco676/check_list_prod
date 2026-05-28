@@ -199,7 +199,7 @@
                 <button class="btn-new-verification" onclick="addNewVerification()">➕ Nova Verificação</button>
                 <div class="image-upload-section">
                     <button class="image-btn" onclick="document.getElementById('imageUpload').click()">📷 Adicionar Fotos</button>
-                    <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)" style="display:none">
+                    <input type="file" id="imageUpload" multiple accept="image/*" onchange="handleImageUpload(event)" style="display:none" capture="environment">
                     <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
@@ -242,7 +242,7 @@
 
         <div class="actions">
             <div class="action-buttons">
-                <button class="action-btn btn-save" onclick="saveData()">💾 Salvar Local</button>
+                <button class="action-btn btn-save" onclick="saveData(true)">💾 Salvar Local</button>
                 <button class="action-btn btn-export" onclick="exportData()">📥 Exportar</button>
                 <button class="action-btn btn-import" onclick="document.getElementById('importFile').click()">📤 Importar</button>
                 <button class="action-btn btn-pdf" onclick="generatePDF()">📄 PDF</button>
@@ -309,10 +309,10 @@
             }
             closeModal();
             updateSummary();
-            performSaveData(); // Auto-save ao fechar o modal
+            performSaveData(); // Salva em segundo plano
         }
 
-        // --- LÓGICA DE TEMPO ---
+        // --- LÓGICA DE TEMPO E INTERVALO ---
         function timeToMinutes(timeStr) { const parts = timeStr.split(':'); return parseInt(parts[0])*60 + parseInt(parts[1]); }
         
         function validateTime(currentTime, previousTime) {
@@ -320,7 +320,7 @@
             const morningLimit = timeToMinutes('08:15');
             const afternoonStartLimit = timeToMinutes('14:00');
             const noon = timeToMinutes('12:00');
-            const intervalMax = 60; // 1 HORA
+            const intervalMax = 60; // 1 HORA DE INTERVALO MÁXIMO
 
             if (!previousTime) {
                 if (curMin < noon) return curMin <= morningLimit ? 'time-valid' : 'time-danger';
@@ -428,7 +428,7 @@
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
             updateSummary();
-            performSaveData(); // Auto-save ao adicionar linha
+            performSaveData(); // Salva em segundo plano
         }
 
         function setStatus(btn, status, contextTitle) {
@@ -455,9 +455,8 @@
             } else {
                 justBtn.classList.remove('show');
             }
-            
             updateSummary();
-            performSaveData(); // Auto-save ao alterar status
+            performSaveData();
         }
 
         // --- DASHBOARD ---
@@ -531,7 +530,8 @@
         }
 
         document.addEventListener('input', function(e) {
-            if(e.target && e.target.classList.contains('op-input')){ updateSummary(); }
+            if(e.target && e.target.classList.contains('op-input')){ updateSummary(); performSaveData(); }
+            if(e.target && e.target.classList.contains('image-legend-input')) { performSaveData(); }
         });
 
         // --- SINCRONIZAÇÃO DE FOTOS ---
@@ -585,7 +585,7 @@
         function generatePDF() {
             if (!validateAll()) return;
             syncImageLegends(); 
-            performSaveData(); // Salva antes do PDF
+            performSaveData();
 
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('l', 'mm', 'a4');
@@ -742,7 +742,7 @@
             showToast("PDF Gerado!");
         }
 
-        // --- UPLOAD IMAGENS ---
+        // --- UPLOAD IMAGENS COM COMPRESSÃO (EVITA TRAVAMENTOS DE MEMÓRIA) ---
         function handleImageUpload(event) {
             const files = Array.from(event.target.files);
             const preview = document.getElementById('imagePreview');
@@ -750,67 +750,95 @@
                 if (file.type.startsWith('image/')) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        const imgId = Date.now() + Math.floor(Math.random() * 1000);
-                        const imgData = { id: imgId, name: file.name, data: e.target.result };
-                        uploadedImages.push(imgData);
-                        
-                        const div = document.createElement('div'); 
-                        div.className = 'image-container'; 
-                        div.setAttribute('data-id', imgId);
-                        div.innerHTML = `
-                            <button class="image-delete-btn" onclick="deleteImage(${imgId})">×</button>
-                            <img src="${imgData.data}">
-                            <textarea class="image-legend-input" placeholder="Digite a legenda...">${file.name}</textarea>
-                        `;
-                        preview.appendChild(div);
-                    }; reader.readAsDataURL(file);
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 800; // Reduz o tamanho da imagem em 80% para poupar memória
+                            const MAX_HEIGHT = 800;
+                            let width = img.width;
+                            let height = img.height;
+
+                            if (width > height) {
+                                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                            } else {
+                                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); // Compressão forte para PDF
+                            
+                            const imgId = Date.now() + Math.floor(Math.random() * 1000);
+                            const imgData = { id: imgId, name: file.name, data: compressedDataUrl };
+                            uploadedImages.push(imgData);
+                            
+                            const div = document.createElement('div'); 
+                            div.className = 'image-container'; 
+                            div.setAttribute('data-id', imgId);
+                            div.innerHTML = `
+                                <button class="image-delete-btn" onclick="deleteImage(${imgId})">×</button>
+                                <img src="${compressedDataUrl}">
+                                <textarea class="image-legend-input" placeholder="Digite a legenda...">${file.name}</textarea>
+                            `;
+                            preview.appendChild(div);
+                            performSaveData(); // Salva estado após carregar imagem
+                        };
+                        img.src = e.target.result;
+                    }; 
+                    reader.readAsDataURL(file);
                 }
             });
             event.target.value = ''; 
-            performSaveData(); // Auto-save
         }
 
         function deleteImage(id) { 
             uploadedImages = uploadedImages.filter(img => img.id !== id); 
             const el = document.querySelector(`.image-container[data-id="${id}"]`); 
             if(el) el.remove(); 
-            performSaveData(); // Auto-save
-        }
-
-        // --- AUTO-SAVE E STORAGE ---
-        function performSaveData() { 
-            if (isClearing) return; // Não salvar se estiver limpando
-            syncImageLegends(); 
-            const data = { date: document.getElementById('data').value, verificador: document.getElementById('verificador').value, rows: [], images: uploadedImages };
-            document.querySelectorAll('#checklistBody tr').forEach(row => {
-                const rowData = { hora: row.cells[0].innerText.split('\n')[0].trim(), timeJust: row.querySelector('.time-just-input').value, op: row.querySelector('.op-input').value, cols: [], obs: row.querySelector('.obs-general-input').value };
-                for(let i=2; i<=5; i++) {
-                    const active = row.cells[i].querySelector('.status-btn.active');
-                    rowData.cols.push({ status: active ? (active.classList.contains('btn-ok') ? 'ok' : active.classList.contains('btn-atencao') ? 'atencao' : 'nok') : null, just: row.cells[i].querySelector('.col-just-input').value });
-                }
-                data.rows.push(rowData);
-            });
-            localStorage.setItem('checklist_data', JSON.stringify(data)); 
-        }
-
-        function saveData() { 
             performSaveData();
-            showToast("Salvo localmente!"); 
         }
 
-        // Rotina de auto-save a cada 10 segundos
-        setInterval(performSaveData, 10000);
+        // --- SISTEMA DE SALVAMENTO SEGURO (AUTO-SAVE) ---
+        function performSaveData() { 
+            if (isClearing) return;
+            try {
+                syncImageLegends(); 
+                const data = { date: document.getElementById('data').value, verificador: document.getElementById('verificador').value, rows: [], images: uploadedImages };
+                document.querySelectorAll('#checklistBody tr').forEach(row => {
+                    const rowData = { hora: row.cells[0].innerText.split('\n')[0].trim(), timeJust: row.querySelector('.time-just-input').value, op: row.querySelector('.op-input').value, cols: [], obs: row.querySelector('.obs-general-input').value };
+                    for(let i=2; i<=5; i++) {
+                        const active = row.cells[i].querySelector('.status-btn.active');
+                        rowData.cols.push({ status: active ? (active.classList.contains('btn-ok') ? 'ok' : active.classList.contains('btn-atencao') ? 'atencao' : 'nok') : null, just: row.cells[i].querySelector('.col-just-input').value });
+                    }
+                    data.rows.push(rowData);
+                });
+                localStorage.setItem('checklist_data', JSON.stringify(data)); 
+            } catch (e) {
+                console.error("Erro no Auto-Save:", e);
+                if (e.name === 'QuotaExceededError' || e.message.includes('Quota')) {
+                    showToast("Memória cheia! Exporte os dados ou limpe as fotos.", "error");
+                }
+            }
+        }
 
-        // Auto-save se a aba for fechada ou atualizada
+        function saveData(showFeedback = false) { 
+            performSaveData();
+            if (showFeedback) showToast("Salvo localmente!"); 
+        }
+
+        // Auto-save a cada 10 segundos
+        setInterval(performSaveData, 10000);
+        // Auto-save se tentar fechar a aba
         window.addEventListener('beforeunload', performSaveData);
-        
+
         function loadData() {
             const saved = localStorage.getItem('checklist_data');
             if(!saved) return;
             
             try {
                 const data = JSON.parse(saved);
-                
                 if(data.date) document.getElementById('data').value = data.date;
                 if(data.verificador) document.getElementById('verificador').value = data.verificador;
                 
